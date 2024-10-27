@@ -129,7 +129,12 @@ function Install-ChocoPackage {
         [string]$packageName
     )
     Write-Host "Installing $packageName using Chocolatey..."
-    choco install $packageName -y
+    try {
+        choco install $packageName -y
+    }
+    catch {
+        Write-Host "Failed to install $packageName using Chocolatey: $_" -ForegroundColor Red
+    }
 }
 
 # Function to install software using WinGet
@@ -138,7 +143,12 @@ function Install-WingetPackage {
         [string]$packageName
     )
     Write-Host "Installing $packageName using WinGet..."
-    winget install --id $packageName -e --silent
+    try {
+        winget install --id $packageName -e --silent
+    }
+    catch {
+        Write-Host "Failed to install $packageName using WinGet: $_" -ForegroundColor Red
+    }
 }
 
 # Function to install Internet Download Manager silently
