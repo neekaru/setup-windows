@@ -94,16 +94,40 @@ function Get-GithubReleaseAsset {
         [string]$repository,
         [string]$tag,
         [string]$assetName,
-        [string]$outputPath
+        [string]$outputPath,
+        [bool]$speed = $false
     )
     $url = "https://github.com/${repository}/releases/download/${tag}/${assetName}"
-    Write-Host "Downloading ${assetName} from ${url}..."
-    try {
-        Invoke-WebRequest -Uri $url -OutFile $outputPath
-        Write-Host "Download completed: ${outputPath}"
-    }
-    catch {
-        Write-Host "Failed to download ${assetName}: $_" -ForegroundColor Red
+    if ($speed) {
+        $aria2cPath = "$env:TEMP\aria2c.exe"
+        if (!(Test-Path $aria2cPath)) {
+            Write-Host "Downloading aria2c to ${aria2cPath}..."
+            $aria2Url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+            $aria2ZipPath = "$env:TEMP\aria2c.zip"
+            $aria2ExtractPath = "$env:TEMP\aria2c_extract"
+            
+            # Create directories if they do not exist
+            if (-Not (Test-Path -Path $aria2ExtractPath)) { mkdir $aria2ExtractPath }
+            
+            # Download aria2 zip file
+            Invoke-WebRequest -Uri $aria2Url -OutFile $aria2ZipPath
+            
+            # Extract aria2 zip file
+            Expand-Archive -Path $aria2ZipPath -DestinationPath $aria2ExtractPath
+            
+            # Move aria2c.exe to the aria2 directory
+            $aria2ExePath = "$aria2ExtractPath\aria2-1.37.0-win-64bit-build1\aria2c.exe"
+            Move-Item -Path $aria2ExePath -Destination $aria2cPath -Force
+            
+            # Clean up
+            Remove-Item $aria2ZipPath
+            Remove-Item -Recurse -Force $aria2ExtractPath
+        }
+        $arguments = "--continue=true --auto-file-renaming=false --allow-overwrite=true --max-connection-per-server=16 --min-split-size=1M --console-log-level=warn --quiet=false --show-console-readout=false --file-allocation=none ${url} -o ${outputPath}"
+        Start-Process -FilePath $aria2cPath -ArgumentList $arguments -Wait
+    } else {
+        Write-Host "Downloading ${assetName} from ${url}..."
+        Get-FileFromUrl -url $url -outputPath $outputPath
     }
 }
 
@@ -135,7 +159,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
     }
 
     Write-Host "Installing WinGet..."
-    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -tag "latest" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
+    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -tag "latest" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle" -speed $true
     Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
 }
 
