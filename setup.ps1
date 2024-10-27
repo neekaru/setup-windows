@@ -89,6 +89,24 @@ function Clear-SystemCache {
     Write-Host "System cleanup completed!"
 }
 
+function Get-GithubReleaseAsset {
+    param (
+        [string]$repository,
+        [string]$tag,
+        [string]$assetName,
+        [string]$outputPath
+    )
+    $url = "https://github.com/${repository}/releases/download/${tag}/${assetName}"
+    Write-Host "Downloading ${assetName} from ${url}..."
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $outputPath
+        Write-Host "Download completed: ${outputPath}"
+    }
+    catch {
+        Write-Host "Failed to download ${assetName}: $_" -ForegroundColor Red
+    }
+}
+
 # Install Chocolatey
 Write-Host "Installing Chocolatey..."
 if (!(Test-Path "$env:ProgramData\chocolatey\choco.exe")) {
@@ -117,11 +135,10 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
     }
 
     Write-Host "Installing WinGet..."
-    $download_url = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    $output_path = "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
-    Get-FileFromUrl -url $download_url -outputPath $output_path
-    Add-AppxPackage -Path $output_path
+    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -tag "latest" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
+    Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
 }
+
 
 # Function to install software using Chocolatey
 function Install-ChocoPackage {
@@ -164,17 +181,17 @@ function Install-IDM {
     }
 }
 
-function Install-Software {
+function Install-SoftwareFromUrl {
     param (
-        [string]$url
-        [string]$filename
-        [string]$arguments = ""
+        [string]$url,
+        [string]$filename,
+        [string]$arguments = $null
     )
     $installerPath = "$env:TEMP\$filename"
 
     Write-Host "Downloading from $url..."
     if (Get-FileFromUrl -url $url -outputPath $installerPath) {
-        if ($arguments -eq "") {
+        if ([string]::IsNullOrEmpty($arguments)) {
             Write-Host "Executing installer and waiting for completion..."
             Start-Process -FilePath $installerPath -Wait
         } else {
@@ -182,6 +199,32 @@ function Install-Software {
             Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait
         }
         Remove-Item $installerPath -Force
+    }
+}
+
+function Install-Software {
+    param (
+        [string]$location,
+        [string]$arguments = $null
+    )
+    $installerPath = $location
+
+    if (Test-Path $installerPath) {
+        try {
+            if ([string]::IsNullOrEmpty($arguments)) {
+                Write-Host "Executing installer from ${location} and waiting for completion..."
+                Start-Process -FilePath $installerPath -Wait
+            } else {
+                Write-Host "Executing installer from ${location} with arguments and waiting for completion..."
+                Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait
+            }
+            Remove-Item $installerPath -Force
+        }
+        catch {
+            Write-Host "Installation failed from ${location}: $_" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Installer not found at ${location}: skipping..." -ForegroundColor Yellow
     }
 }
 
@@ -210,8 +253,10 @@ Install-ChocoPackage "git"
 
 # Install Internet Download Manager and some others
 Install-IDM
-Install-Software -url "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-windows-x64.exe" -filename "postgresql-17.0-1-windows-x64.exe" -arguments ""
-Install-Software -url "https://github.com/abbodi1406/vcredist/releases/latest/download/VisualCppRedist_AIO_x86_x64.exe" -filename "VisualCppRedist_AIO_x86_x64.exe" -arguments "/ai /gm2"
+Install-SoftwareFromUrl -url "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-windows-x64.exe" -filename "postgresql-17.0-1-windows-x64.exe" -arguments ""
+
+Get-GithubReleaseAsset -repository "abbodi1406/vcredist" -tag "latest" -assetName "VisualCppRedist_AIO_x86_x64.exe" -outputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
+Install-Software -location "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -arguments "/ai /gm2"
 
 # Clean up system after installations
 Clear-SystemCache
