@@ -124,8 +124,8 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
         "Microsoft.VCLibs.140.00_14.0.33519.0_x86__8wekyb3d8bbwe.Appx",
         "Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x86__8wekyb3d8bbwe.Appx",
         "Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x64__8wekyb3d8bbwe.Appx",
-        "Microsoft.UI.Xaml.2.7_7.2208.15002.0_x86__8wekyb3d8bbwe.Appx",
-        "Microsoft.UI.Xaml.2.7_7.2208.15002.0_x64__8wekyb3d8bbwe.Appx"
+        "Microsoft.UI.Xaml.2.8_8.2310.30001.0_x86__8wekyb3d8bbwe.Appx",
+        "Microsoft.UI.Xaml.2.8_8.2310.30001.0_x64__8wekyb3d8bbwe.Appx"
     )
     $base_url = "https://github.com/MatiDEV-PL/Open-ToolBox/raw/main/Appx/"
     foreach ($package in $packages) {
