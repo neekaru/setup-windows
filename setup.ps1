@@ -110,7 +110,7 @@ function Get-GithubReleaseAsset {
             if (-Not (Test-Path -Path $aria2ExtractPath)) { mkdir $aria2ExtractPath }
             
             # Download aria2 zip file
-            Invoke-WebRequest -Uri $aria2Url -OutFile $aria2ZipPath
+            Get-FileFromUrl -url $aria2Url -outputPath $aria2ZipPath
             
             # Extract aria2 zip file
             Expand-Archive -Path $aria2ZipPath -DestinationPath $aria2ExtractPath
