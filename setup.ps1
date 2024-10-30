@@ -92,12 +92,11 @@ function Clear-SystemCache {
 function Get-GithubReleaseAsset {
     param (
         [string]$repository,
-        [string]$tag,
         [string]$assetName,
         [string]$outputPath,
         [bool]$speed = $false
     )
-    $url = "https://github.com/${repository}/releases/download/${tag}/${assetName}"
+    $url = "https://github.com/${repository}/releases/latest/download/${assetName}"
     if ($speed) {
         $aria2cPath = "$env:TEMP\aria2c.exe"
         if (!(Test-Path $aria2cPath)) {
@@ -159,7 +158,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
     }
 
     Write-Host "Installing WinGet..."
-    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -tag "latest" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle" -speed $true
+    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle" -speed $true
     Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
 }
 
@@ -265,7 +264,7 @@ Install-WingetPackage "Microsoft.VisualStudioCode"
 # Install-WingetPackage "Notepad++.Notepad++"
 # Install-WingetPackage "Telegram.TelegramDesktop"
 # Install-WingetPackage "Microsoft.VisualStudio.2022.Community"
-Install-WingetPackage "ApacheFriends.Xampp"
+Install-WingetPackage "ApacheFriends.Xampp.8.2"
 # Install-WingetPackage "laragon.laragon"
 # Install-WingetPackage "qBittorrent.qBittorrent"
 Install-WingetPackage "Python.Python.3.12"
@@ -279,7 +278,7 @@ Install-ChocoPackage "git"
 Install-IDM
 Install-SoftwareFromUrl -url "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-windows-x64.exe" -filename "postgresql-17.0-1-windows-x64.exe" -arguments ""
 
-Get-GithubReleaseAsset -repository "abbodi1406/vcredist" -tag "latest" -assetName "VisualCppRedist_AIO_x86_x64.exe" -outputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
+Get-GithubReleaseAsset -repository "abbodi1406/vcredist" -assetName "VisualCppRedist_AIO_x86_x64.exe" -outputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
 Install-Software -location "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -arguments "/ai /gm2"
 
 # Clean up system after installations
