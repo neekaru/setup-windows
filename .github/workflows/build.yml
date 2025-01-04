@@ -17,13 +17,10 @@
          - name: Checkout code
            uses: actions/checkout@v2
 
-         - name: Set up PowerShell
-           uses: actions/setup-powershell@v2
-
          - name: Install PSScriptAnalyzer
            run: |
              Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
 
          - name: Run PSScriptAnalyzer
            run: |
-             Invoke-ScriptAnalyzer -Path .\*.ps1 -Recurse -Severity Warning,Error
+             pwsh -Command "Invoke-ScriptAnalyzer -Path .\*.ps1 -Recurse -Severity Warning,Error"
