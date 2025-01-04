@@ -1,0 +1,29 @@
+   name: Validate PowerShell Scripts
+
+   on:
+     push:
+       branches:
+         - main
+     pull_request:
+       branches:
+         - main
+     workflow_dispatch:  # Allows manual triggering of the workflow
+
+   jobs:
+     lint:
+       runs-on: windows-latest
+
+       steps:
+         - name: Checkout code
+           uses: actions/checkout@v2
+
+         - name: Set up PowerShell
+           uses: actions/setup-powershell@v2
+
+         - name: Install PSScriptAnalyzer
+           run: |
+             Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+         - name: Run PSScriptAnalyzer
+           run: |
+             Invoke-ScriptAnalyzer -Path .\*.ps1 -Recurse -Severity Warning,Error
