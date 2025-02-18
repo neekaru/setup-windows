@@ -276,7 +276,7 @@ Install-ChocoPackage "git"
 
 # Install Internet Download Manager and some others
 Install-IDM
-Install-SoftwareFromUrl -url "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-windows-x64.exe" -filename "postgresql-17.0-1-windows-x64.exe" -arguments ""
+Install-SoftwareFromUrl -url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -filename "postgresql-17.3-1-windows-x64.exe" -arguments ""
 
 Get-GithubReleaseAsset -repository "abbodi1406/vcredist" -assetName "VisualCppRedist_AIO_x86_x64.exe" -outputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
 Install-Software -location "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -arguments "/ai /gm2"
