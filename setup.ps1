@@ -180,14 +180,27 @@ function Install-ChocoPackage {
 # Function to install software using WinGet
 function Install-WingetPackage {
     param (
-        [string]$packageName
+        [string]$packageName,
+        [string]$version
     )
-    Write-Host "Installing $packageName using WinGet..."
-    try {
-        winget install --id $packageName -e --silent
+    
+    if ($version) {
+        Write-Host "Installing $packageName version $version using WinGet..."
+        try {
+            winget install --id $packageName --version $version -e --silent
+        }
+        catch {
+            Write-Host "Failed to install $packageName version $version using WinGet: $_" -ForegroundColor Red
+        }
     }
-    catch {
-        Write-Host "Failed to install $packageName using WinGet: $_" -ForegroundColor Red
+    else {
+        Write-Host "Installing $packageName using WinGet..."
+        try {
+            winget install --id $packageName -e --silent
+        }
+        catch {
+            Write-Host "Failed to install $packageName using WinGet: $_" -ForegroundColor Red
+        }
     }
 }
 
@@ -265,6 +278,7 @@ Install-WingetPackage "Microsoft.VisualStudioCode"
 # Install-WingetPackage "Telegram.TelegramDesktop"
 # Install-WingetPackage "Microsoft.VisualStudio.2022.Community"
 Install-WingetPackage "ApacheFriends.Xampp.8.2"
+Install-WingetPackage -packageName "Laragon" -version "6.0.0"
 # Install-WingetPackage "laragon.laragon"
 # Install-WingetPackage "qBittorrent.qBittorrent"
 Install-WingetPackage "Python.Python.3.12"
