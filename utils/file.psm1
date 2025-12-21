@@ -1,6 +1,7 @@
 # this is for handler copy file, move file, delete file to recycle bin
 
 function Copy-FileHandler {
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
         [string]$SourcePath,
@@ -24,14 +25,17 @@ function Copy-FileHandler {
             return $false
         }
 
-        if ($Force) {
-            Copy-Item -Path $SourcePath -Destination $DestinationPath -Recurse:$Recurse -Force -ErrorAction Stop
-        } else {
-            Copy-Item -Path $SourcePath -Destination $DestinationPath -Recurse:$Recurse -ErrorAction Stop
-        }
+        if ($PSCmdlet.ShouldProcess($DestinationPath, "Copy from $SourcePath")) {
+            if ($Force) {
+                Copy-Item -Path $SourcePath -Destination $DestinationPath -Recurse:$Recurse -Force -ErrorAction Stop
+            } else {
+                Copy-Item -Path $SourcePath -Destination $DestinationPath -Recurse:$Recurse -ErrorAction Stop
+            }
 
-        Write-Verbose "Successfully copied: $SourcePath -> $DestinationPath"
-        return $true
+            Write-Verbose "Successfully copied: $SourcePath -> $DestinationPath"
+            return $true
+        }
+        return $false
     } catch {
         Write-Error "Failed to copy file: $_"
         return $false
@@ -39,6 +43,7 @@ function Copy-FileHandler {
 }
 
 function Move-FileHandler {
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
         [string]$SourcePath,
@@ -55,14 +60,17 @@ function Move-FileHandler {
             return $false
         }
 
-        if ($Force) {
-            Move-Item -Path $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
-        } else {
-            Move-Item -Path $SourcePath -Destination $DestinationPath -ErrorAction Stop
-        }
+        if ($PSCmdlet.ShouldProcess($DestinationPath, "Move from $SourcePath")) {
+            if ($Force) {
+                Move-Item -Path $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+            } else {
+                Move-Item -Path $SourcePath -Destination $DestinationPath -ErrorAction Stop
+            }
 
-        Write-Verbose "Successfully moved: $SourcePath -> $DestinationPath"
-        return $true
+            Write-Verbose "Successfully moved: $SourcePath -> $DestinationPath"
+            return $true
+        }
+        return $false
     } catch {
         Write-Error "Failed to move file: $_"
         return $false
@@ -70,11 +78,11 @@ function Move-FileHandler {
 }
 
 function Remove-FileToRecycleBin {
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
         [string]$Path,
 
-        [switch]$Recurse,
         [switch]$Force
     )
 
@@ -87,40 +95,43 @@ function Remove-FileToRecycleBin {
         $item = Get-Item $Path
         $fullPath = $item.FullName
 
-        Add-Type -AssemblyName Microsoft.VisualBasic
+        if ($PSCmdlet.ShouldProcess($fullPath, "Delete to Recycle Bin")) {
+            Add-Type -AssemblyName Microsoft.VisualBasic
 
-        if ($item -is [System.IO.DirectoryInfo]) {
-            if ($Force) {
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
-                    $fullPath,
-                    [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,
-                    [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
-                )
+            if ($item -is [System.IO.DirectoryInfo]) {
+                if ($Force) {
+                    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+                        $fullPath,
+                        [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,
+                        [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
+                    )
+                } else {
+                    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+                        $fullPath,
+                        [Microsoft.VisualBasic.FileIO.UIOption]::AllDialogs,
+                        [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
+                    )
+                }
             } else {
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
-                    $fullPath,
-                    [Microsoft.VisualBasic.FileIO.UIOption]::AllDialogs,
-                    [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
-                )
+                if ($Force) {
+                    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
+                        $fullPath,
+                        [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,
+                        [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
+                    )
+                } else {
+                    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
+                        $fullPath,
+                        [Microsoft.VisualBasic.FileIO.UIOption]::AllDialogs,
+                        [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
+                    )
+                }
             }
-        } else {
-            if ($Force) {
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
-                    $fullPath,
-                    [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,
-                    [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
-                )
-            } else {
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
-                    $fullPath,
-                    [Microsoft.VisualBasic.FileIO.UIOption]::AllDialogs,
-                    [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
-                )
-            }
+
+            Write-Verbose "Successfully deleted to recycle bin: $Path"
+            return $true
         }
-
-        Write-Verbose "Successfully deleted to recycle bin: $Path"
-        return $true
+        return $false
     } catch {
         Write-Error "Failed to delete to recycle bin: $_"
         return $false
@@ -128,13 +139,13 @@ function Remove-FileToRecycleBin {
 }
 
 function Remove-FileVerbose {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param (
         [Parameter(Mandatory)]
         [string]$Path,
 
         [switch]$Recurse,
-        [switch]$Force,
-        [switch]$Confirm
+        [switch]$Force
     )
 
     try {
@@ -157,20 +168,17 @@ function Remove-FileVerbose {
                 Write-Verbose "Items in directory: $itemCount"
             }
 
-            if ($Confirm -and -not $Force) {
-                $response = Read-Host "Are you sure you want to delete this directory? (yes/no)"
-                if ($response -ne 'yes') {
-                    Write-Verbose "Deletion cancelled"
-                    return $false
+            if ($PSCmdlet.ShouldProcess($fullPath, "Delete directory")) {
+                if ($Force) {
+                    Remove-Item -Path $fullPath -Recurse -Force -ErrorAction Stop
+                    Write-Verbose "Verbose: Directory deleted with -Force flag"
+                } else {
+                    Remove-Item -Path $fullPath -Recurse -ErrorAction Stop
+                    Write-Verbose "Verbose: Directory deleted"
                 }
-            }
-
-            if ($Force) {
-                Remove-Item -Path $fullPath -Recurse -Force -ErrorAction Stop
-                Write-Verbose "Verbose: Directory deleted with -Force flag"
             } else {
-                Remove-Item -Path $fullPath -Recurse -ErrorAction Stop
-                Write-Verbose "Verbose: Directory deleted"
+                Write-Verbose "Deletion cancelled"
+                return $false
             }
         } else {
             $fileSize = $item.Length
@@ -179,20 +187,17 @@ function Remove-FileVerbose {
             Write-Verbose "Created: $($item.CreationTime)"
             Write-Verbose "Modified: $($item.LastWriteTime)"
 
-            if ($Confirm -and -not $Force) {
-                $response = Read-Host "Are you sure you want to delete this file? (yes/no)"
-                if ($response -ne 'yes') {
-                    Write-Verbose "Deletion cancelled"
-                    return $false
+            if ($PSCmdlet.ShouldProcess($fullPath, "Delete file")) {
+                if ($Force) {
+                    Remove-Item -Path $fullPath -Force -ErrorAction Stop
+                    Write-Verbose "Verbose: File deleted with -Force flag"
+                } else {
+                    Remove-Item -Path $fullPath -ErrorAction Stop
+                    Write-Verbose "Verbose: File deleted"
                 }
-            }
-
-            if ($Force) {
-                Remove-Item -Path $fullPath -Force -ErrorAction Stop
-                Write-Verbose "Verbose: File deleted with -Force flag"
             } else {
-                Remove-Item -Path $fullPath -ErrorAction Stop
-                Write-Verbose "Verbose: File deleted"
+                Write-Verbose "Deletion cancelled"
+                return $false
             }
         }
 
@@ -210,6 +215,7 @@ function Remove-FileVerbose {
 }
 
 function Expand-ZipFile {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [string]$ZipPath,
@@ -279,7 +285,4 @@ function Expand-ZipFile {
     }
 }
 
-Export-ModuleMember -Function Copy-FileHandler, Move-FileHandler, Remove-FileToRecycleBin, Remove-FileVerbose, Expand-ZipFile 
-
-
-
+Export-ModuleMember -Function Copy-FileHandler, Move-FileHandler, Remove-FileToRecycleBin, Remove-FileVerbose, Expand-ZipFile

@@ -71,7 +71,7 @@ function New-PackageRow {
     }
 }
 
-function Set-PlaceholderText {
+function Expand-PlaceholderText {
     param(
         [string]$Content,
         [hashtable]$Map
@@ -336,7 +336,7 @@ $generateBtn.Add_Click({
         "ENABLE_LOG" = (ConvertTo-BoolString $enableLog.IsChecked)
     }
 
-    $content = Set-PlaceholderText -Content $content -Map $map
+    $content = Expand-PlaceholderText -Content $content -Map $map
     $content | Out-File -FilePath $outputBox.Text -Encoding UTF8
 
     [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.", "Success", "OK", "Information")

@@ -13,7 +13,7 @@ function Test-ProgramInstalled {
     }
 }
 
-function List-ProgramsInstalled {
+function Get-ProgramInstallationStatus {
     param (
         [string[]]$ProgramNames
     )
@@ -25,7 +25,7 @@ function List-ProgramsInstalled {
     return $installedPrograms
 }
 
-function Should-ExcludeProgramName {
+function Test-ProgramNameExclusion {
     param (
         [Parameter(Mandatory)]
         [string]$Name,
@@ -66,7 +66,7 @@ function Should-ExcludeProgramName {
     return $false
 }
 
-function Normalize-PathEntry {
+function ConvertTo-NormalizedPath {
     param (
         [Parameter(Mandatory)]
         [string]$Path,
@@ -108,7 +108,7 @@ function Normalize-PathEntry {
     return $trimmed
 }
 
-function Get-AllInstalledPrograms {
+function Get-InstalledProgram {
     param (
         [string[]]$ExcludeKeywords = @('Windows Update', 'WindowsUpdate', 'Driver', 'Service', 'PowerShell', 'pwsh', 'CORE_RL_*', 'System*', 'Windows*', 'Microsoft*'),
         [string[]]$AllowKeywords = @('System.Xml'),
@@ -174,7 +174,7 @@ function Get-AllInstalledPrograms {
                 continue
             }
 
-            if (Should-ExcludeProgramName -Name $displayName -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) {
+            if (Test-ProgramNameExclusion -Name $displayName -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) {
                 continue
             }
 
@@ -208,7 +208,7 @@ function Get-AllInstalledPrograms {
                 continue
             }
 
-            $normalizedPath = Normalize-PathEntry -Path $path -SystemRoot $systemRoot
+            $normalizedPath = ConvertTo-NormalizedPath -Path $path -SystemRoot $systemRoot
             if (-not $normalizedPath) {
                 continue
             }
@@ -216,7 +216,7 @@ function Get-AllInstalledPrograms {
             $files = Get-ChildItem -Path (Join-Path $normalizedPath '*') -File -Include $executableExtensions -ErrorAction SilentlyContinue
             foreach ($file in $files) {
                 $programName = $file.BaseName
-                if (Should-ExcludeProgramName -Name $programName -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) {
+                if (Test-ProgramNameExclusion -Name $programName -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) {
                     continue
                 }
 
@@ -225,8 +225,8 @@ function Get-AllInstalledPrograms {
         }
     }
 
-    $filteredResults = $installedPrograms | Where-Object { -not (Should-ExcludeProgramName -Name $_ -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) } | Sort-Object
+    $filteredResults = $installedPrograms | Where-Object { -not (Test-ProgramNameExclusion -Name $_ -ExcludeKeywords $ExcludeKeywords -AllowKeywords $AllowKeywords) } | Sort-Object
     return $filteredResults
 }
 
-Export-ModuleMember -Function Test-ProgramInstalled, List-ProgramsInstalled, Get-AllInstalledPrograms
+Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram
