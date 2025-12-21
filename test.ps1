@@ -1,7 +1,7 @@
 # make test to list all program
 
 
-Import-Module ./utils/program.psm1 -Force
+Import-Module ./utils/program_utils.psm1 -Force
 
 # $programsToCheck = @("git", "node", "python", "nonexistentprogram")
 # $installedPrograms = List-ProgramsInstalled -ProgramNames $programsToCheck
