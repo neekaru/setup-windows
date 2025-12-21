@@ -1,26 +1,27 @@
-   name: Validate PowerShell Scripts
+name: Validate PowerShell Scripts
 
-   on:
-     push:
-       branches:
-         - main
-     pull_request:
-       branches:
-         - main
-     workflow_dispatch:  # Allows manual triggering of the workflow
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual triggering of the workflow
 
-   jobs:
-     lint:
-       runs-on: windows-latest
+jobs:
+  lint:
+    runs-on: windows-latest
 
-       steps:
-         - name: Checkout code
-           uses: actions/checkout@v2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-         - name: Install PSScriptAnalyzer
-           run: |
-             Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+      - name: Install PSScriptAnalyzer
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
 
-         - name: Run PSScriptAnalyzer
-           run: |
-             pwsh -Command "Invoke-ScriptAnalyzer -Path .\*.ps1 -Recurse -Severity Warning,Error"
+      - name: Run PSScriptAnalyzer
+        run: |
+          pwsh -Command "Invoke-ScriptAnalyzer -Path . -Recurse -Include '*.ps1','*.psm1' -Severity Warning,Error -EnableExit"

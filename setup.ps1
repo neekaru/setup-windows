@@ -4,46 +4,10 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     break
 }
 
-# Function to check if a program is installed
-function Test-ProgramInstalled {
-    param (
-        [string]$programName
-    )
-    $installed = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | 
-        Where-Object { $_.DisplayName -like "*$programName*" }
-    return $null -ne $installed
-}
-
-# Function to download file
-function Get-FileFromUrl {
-    param (
-        [string]$url,
-        [string]$outputPath,
-        [bool]$useIDM = $false
-    )
-    Write-Host "Downloading from $url..."
-    if ($useIDM) {
-        $idmPath = "C:\Program Files (x86)\Internet Download Manager\IDMan.exe"
-        if (Test-Path $idmPath) {
-            $arguments = "/d $url /p $outputPath /f $(Split-Path -Leaf $outputPath) /n /q"
-            Start-Process -FilePath $idmPath -ArgumentList $arguments -Wait
-            Write-Host "Download completed using IDM: $outputPath"
-            return $true
-        } else {
-            Write-Host "IDM not found, falling back to PowerShell download."
-        }
-    }
-    try {
-        Invoke-WebRequest -Uri $url -OutFile $outputPath
-        Write-Host "Download completed: $outputPath"
-        return $true
-    }
-    catch {
-        Write-Host "Failed to download: $url"
-        Write-Host $_.Exception.Message
-        return $false
-    }
-}
+# Import utility modules
+Import-Module ./utils/download.psm1 -Force
+Import-Module ./utils/programs.psm1 -Force
+Import-Module ./utils/file.psm1 -Force
 
 # Function to clean temporary and cache folders
 function Clear-SystemCache {
@@ -89,47 +53,6 @@ function Clear-SystemCache {
     Write-Host "System cleanup completed!"
 }
 
-function Get-GithubReleaseAsset {
-    param (
-        [string]$repository,
-        [string]$assetName,
-        [string]$outputPath,
-        [bool]$speed = $false
-    )
-    $url = "https://github.com/${repository}/releases/latest/download/${assetName}"
-    if ($speed) {
-        $aria2cPath = "$env:TEMP\aria2c.exe"
-        if (!(Test-Path $aria2cPath)) {
-            Write-Host "Downloading aria2c to ${aria2cPath}..."
-            $aria2Url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
-            $aria2ZipPath = "$env:TEMP\aria2c.zip"
-            $aria2ExtractPath = "$env:TEMP\aria2c_extract"
-            
-            # Create directories if they do not exist
-            if (-Not (Test-Path -Path $aria2ExtractPath)) { mkdir $aria2ExtractPath }
-            
-            # Download aria2 zip file
-            Get-FileFromUrl -url $aria2Url -outputPath $aria2ZipPath
-            
-            # Extract aria2 zip file
-            Expand-Archive -Path $aria2ZipPath -DestinationPath $aria2ExtractPath
-            
-            # Move aria2c.exe to the aria2 directory
-            $aria2ExePath = "$aria2ExtractPath\aria2-1.37.0-win-64bit-build1\aria2c.exe"
-            Move-Item -Path $aria2ExePath -Destination $aria2cPath -Force
-            
-            # Clean up
-            Remove-Item $aria2ZipPath
-            Remove-Item -Recurse -Force $aria2ExtractPath
-        }
-        $arguments = "--continue=true --auto-file-renaming=false --allow-overwrite=true --max-connection-per-server=16 --min-split-size=1M --console-log-level=warn --quiet=false --show-console-readout=false --file-allocation=none ${url} -o ${outputPath}"
-        Start-Process -FilePath $aria2cPath -ArgumentList $arguments -Wait
-    } else {
-        Write-Host "Downloading ${assetName} from ${url}..."
-        Get-FileFromUrl -url $url -outputPath $outputPath
-    }
-}
-
 # Install Chocolatey
 Write-Host "Installing Chocolatey..."
 if (!(Test-Path "$env:ProgramData\chocolatey\choco.exe")) {
@@ -153,147 +76,45 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
     $base_url = "https://github.com/MatiDEV-PL/Open-ToolBox/raw/main/Appx/"
     foreach ($package in $packages) {
         $output_path = "$env:TEMP\$package"
-        Get-FileFromUrl -url ($base_url + $package) -outputPath $output_path
+        Invoke-DownloadFile -Url ($base_url + $package) -OutputPath $output_path
         Add-AppxPackage -Path $output_path
     }
 
     Write-Host "Installing WinGet..."
-    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle" -speed $true
+    Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
     Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
 }
 
-
-# Function to install software using Chocolatey
-function Install-ChocoPackage {
-    param (
-        [string]$packageName
-    )
-    Write-Host "Installing $packageName using Chocolatey..."
-    try {
-        choco install $packageName -y
-    }
-    catch {
-        Write-Host "Failed to install $packageName using Chocolatey: $_" -ForegroundColor Red
-    }
-}
-
-# Function to install software using WinGet
-function Install-WingetPackage {
-    param (
-        [string]$packageName,
-        [string]$version
-    )
-    
-    if ($version) {
-        Write-Host "Installing $packageName version $version using WinGet..."
-        try {
-            winget install --id $packageName --version $version -e --silent
-        }
-        catch {
-            Write-Host "Failed to install $packageName version $version using WinGet: $_" -ForegroundColor Red
-        }
-    }
-    else {
-        Write-Host "Installing $packageName using WinGet..."
-        try {
-            winget install --id $packageName -e --silent
-        }
-        catch {
-            Write-Host "Failed to install $packageName using WinGet: $_" -ForegroundColor Red
-        }
-    }
-}
-
-# Function to install Internet Download Manager silently
-function Install-IDM {
-    $idmUrl = "https://download.internetdownloadmanager.com/idman641build2.exe"
-    $idmInstaller = "$env:TEMP\idm_installer.exe"
-    
-    Write-Host "Downloading Internet Download Manager..."
-    if (Get-FileFromUrl -url $idmUrl -outputPath $idmInstaller) {
-        Write-Host "Installing Internet Download Manager silently..."
-        Start-Process -FilePath $idmInstaller -ArgumentList "/silent" -Wait
-        Remove-Item $idmInstaller -Force
-    }
-}
-
-function Install-SoftwareFromUrl {
-    param (
-        [string]$url,
-        [string]$filename,
-        [string]$arguments = $null
-    )
-    $installerPath = "$env:TEMP\$filename"
-
-    Write-Host "Downloading from $url..."
-    if (Get-FileFromUrl -url $url -outputPath $installerPath) {
-        if ([string]::IsNullOrEmpty($arguments)) {
-            Write-Host "Executing installer and waiting for completion..."
-            Start-Process -FilePath $installerPath -Wait
-        } else {
-            Write-Host "Executing installer with arguments and waiting for completion..."
-            Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait
-        }
-        Remove-Item $installerPath -Force
-    }
-}
-
-function Install-Software {
-    param (
-        [string]$location,
-        [string]$arguments = $null
-    )
-    $installerPath = $location
-
-    if (Test-Path $installerPath) {
-        try {
-            if ([string]::IsNullOrEmpty($arguments)) {
-                Write-Host "Executing installer from ${location} and waiting for completion..."
-                Start-Process -FilePath $installerPath -Wait
-            } else {
-                Write-Host "Executing installer from ${location} with arguments and waiting for completion..."
-                Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait
-            }
-            Remove-Item $installerPath -Force
-        }
-        catch {
-            Write-Host "Installation failed from ${location}: $_" -ForegroundColor Red
-        }
-    } else {
-        Write-Host "Installer not found at ${location}: skipping..." -ForegroundColor Yellow
-    }
-}
-
 # Install browsers
-Install-WingetPackage "Google.Chrome"
-Install-WingetPackage "Mozilla.Firefox"
+Install-WithWinget -PackageName "Google.Chrome"
+Install-WithWinget -PackageName "Mozilla.Firefox"
 
 # Install compression tools
-Install-WingetPackage "7zip.7zip"
-Install-WingetPackage "RARLab.WinRAR"
+Install-WithWinget -PackageName "7zip.7zip"
+Install-WithWinget -PackageName "RARLab.WinRAR"
 
 # Install development tools
-Install-WingetPackage "Microsoft.VisualStudioCode"
-# Install-WingetPackage "Notepad++.Notepad++"
-# Install-WingetPackage "Telegram.TelegramDesktop"
-# Install-WingetPackage "Microsoft.VisualStudio.2022.Community"
-Install-WingetPackage "ApacheFriends.Xampp.8.2"
-Install-WingetPackage -packageName "Laragon" -version "6.0.0"
-# Install-WingetPackage "laragon.laragon"
-# Install-WingetPackage "qBittorrent.qBittorrent"
-Install-WingetPackage "Python.Python.3.12"
-Install-WingetPackage "OpenJS.NodeJS"
+Install-WithWinget -PackageName "Microsoft.VisualStudioCode"
+Install-WithWinget -PackageName "ApacheFriends.Xampp.8.2"
+Install-WithWinget -PackageName "Laragon" -Version "6.0.0"
+Install-WithWinget -PackageName "Python.Python.3.12"
+Install-WithWinget -PackageName "OpenJS.NodeJS"
 
 # Tools specifically installed via Chocolatey
-# Install-ChocoPackage "ffmpeg"
-Install-ChocoPackage "git"
+Install-WithChocolatey -PackageName "git"
 
 # Install Internet Download Manager and some others
-Install-IDM
-Install-SoftwareFromUrl -url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -filename "postgresql-17.3-1-windows-x64.exe" -arguments ""
+$idmUrl = "https://download.internetdownloadmanager.com/idman641build2.exe"
+$idmInstaller = "$env:TEMP\idm_installer.exe"
+Install-SoftwareFromUrl -Url $idmUrl -OutputPath $idmInstaller -InstallArguments @("/silent") -RemoveInstaller
 
-Get-GithubReleaseAsset -repository "abbodi1406/vcredist" -assetName "VisualCppRedist_AIO_x86_x64.exe" -outputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
-Install-Software -location "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -arguments "/ai /gm2"
+# Install PostgreSQL
+Install-SoftwareFromUrl -Url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -OutputPath "$env:TEMP\postgresql-17.3-1-windows-x64.exe"
+
+# Install Visual C++ Redistributables
+$vcRedistUrl = "https://github.com/abbodi1406/vcredist/releases/latest/download/VisualCppRedist_AIO_x86_x64.exe"
+Invoke-DownloadFile -Url $vcRedistUrl -OutputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
+Install-SoftwareManually -InstallerPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -Arguments @("/ai", "/gm2") -Wait
 
 # Clean up system after installations
 Clear-SystemCache

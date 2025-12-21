@@ -1,0 +1,18 @@
+[
+  {
+    "Enabled": true,
+    "Name": "PostgreSQL",
+    "Url": "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe",
+    "OutputPath": "$env:TEMP\\postgresql-17.3-1-windows-x64.exe",
+    "InstallArgs": "",
+    "RemoveInstaller": false
+  },
+  {
+    "Enabled": true,
+    "Name": "IDM",
+    "Url": "https://download.internetdownloadmanager.com/idman641build2.exe",
+    "OutputPath": "$env:TEMP\\idm_installer.exe",
+    "InstallArgs": "/silent",
+    "RemoveInstaller": true
+  }
+]

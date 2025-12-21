@@ -1,0 +1,112 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Setup Script Generator"
+        Height="780" Width="880"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0" Margin="0,0,0,10">
+            <TabItem Header="Main">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Template File (setup_template.ps1)" Margin="0,0,0,4" />
+                        <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                            <Button Name="TemplateBrowseButton" Content="Browse" Width="90" DockPanel.Dock="Right" Margin="8,0,0,0" />
+                            <TextBox Name="TemplatePathTextBox" Height="26" />
+                        </DockPanel>
+
+                        <TextBlock Text="Output File (generated setup.ps1)" Margin="0,0,0,4" />
+                        <DockPanel LastChildFill="True" Margin="0,0,0,16">
+                            <Button Name="OutputBrowseButton" Content="Browse" Width="90" DockPanel.Dock="Right" Margin="8,0,0,0" />
+                            <TextBox Name="OutputPathTextBox" Height="26" />
+                        </DockPanel>
+
+                        <WrapPanel Margin="0,0,0,10">
+                            <CheckBox Name="EnableChocoInstallCheckBox" Content="Install Chocolatey if missing" Margin="0,0,16,0" />
+                            <CheckBox Name="EnableWingetInstallCheckBox" Content="Install WinGet if missing" Margin="0,0,16,0" />
+                            <CheckBox Name="EnableScoopInstallCheckBox" Content="Install Scoop if missing" />
+                        </WrapPanel>
+
+                        <CheckBox Name="EnableVCRedistCheckBox" Content="Install VC Redist" Margin="0,0,0,6" />
+                        <TextBlock Text="VC Redist URL" Margin="0,0,0,4" />
+                        <TextBox Name="VcUrlTextBox" Height="26" Margin="0,0,0,6" />
+                        <TextBlock Text="VC Redist args (separate with ';')" Margin="0,0,0,4" />
+                        <TextBox Name="VcArgsTextBox" Height="26" Margin="0,0,0,10" />
+                        <CheckBox Name="EnableDxSetupCheckBox" Content="Install DXSetup" Margin="0,0,0,6" />
+                        <TextBlock Text="DXSetup URL" Margin="0,0,0,4" />
+                        <TextBox Name="DxUrlTextBox" Height="26" Margin="0,0,0,14" />
+
+                        <WrapPanel>
+                            <CheckBox Name="EnableCleanupCheckBox" Content="Run system cleanup at the end" Margin="0,0,16,0" />
+                            <CheckBox Name="EnableLogCheckBox" Content="Create a log file" />
+                        </WrapPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Software">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TabControl Grid.Row="0" Margin="0,0,0,10">
+                        <TabItem Header="Winget">
+                            <DataGrid Name="WingetGrid" AutoGenerateColumns="False" CanUserAddRows="True">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="Status" Binding="{Binding Enabled}" Width="70" />
+                                    <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" />
+                                    <DataGridTextColumn Header="Version (Optional)" Binding="{Binding Version}" Width="140" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <TabItem Header="Chocolatey">
+                            <DataGrid Name="ChocoGrid" AutoGenerateColumns="False" CanUserAddRows="True">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="Status" Binding="{Binding Enabled}" Width="70" />
+                                    <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" />
+                                    <DataGridTextColumn Header="Version (Optional)" Binding="{Binding Version}" Width="140" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <TabItem Header="Scoop">
+                            <DataGrid Name="ScoopGrid" AutoGenerateColumns="False" CanUserAddRows="True">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="Status" Binding="{Binding Enabled}" Width="70" />
+                                    <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" />
+                                    <DataGridTextColumn Header="Version (Optional)" Binding="{Binding Version}" Width="140" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <TabItem Header="URL">
+                            <DataGrid Name="UrlGrid" AutoGenerateColumns="False" CanUserAddRows="True" Margin="0,0,0,10">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="Status" Binding="{Binding Enabled}" Width="70" />
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="140" />
+                                    <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*" />
+                                    <DataGridTextColumn Header="OutputPath" Binding="{Binding OutputPath}" Width="220" />
+                                    <DataGridTextColumn Header="Args (Optional)" Binding="{Binding InstallArgs}" Width="160" />
+                                    <DataGridCheckBoxColumn Header="Remove" Binding="{Binding RemoveInstaller}" Width="80" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                    </TabControl>
+
+                    <DockPanel Grid.Row="1" LastChildFill="False">
+                        <Button Name="AddRowButton" Content="Add Row" Width="100" Margin="0,0,10,0" />
+                        <Button Name="RemoveRowButton" Content="Remove Selected" Width="130" Margin="0,0,10,0" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <DockPanel Grid.Row="1" LastChildFill="False">
+            <Button Name="GenerateButton" Content="Generate setup.ps1" Width="220" HorizontalAlignment="Left" />
+        </DockPanel>
+    </Grid>
+</Window>

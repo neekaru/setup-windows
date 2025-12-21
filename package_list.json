@@ -1,0 +1,62 @@
+[
+  {
+    "Enabled": true,
+    "PackageName": "Google.Chrome",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "Mozilla.Firefox",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "7zip.7zip",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "RARLab.WinRAR",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "Microsoft.VisualStudioCode",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "ApacheFriends.Xampp.8.2",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "Laragon",
+    "Provider": "Winget",
+    "Version": "6.0.0"
+  },
+  {
+    "Enabled": true,
+    "PackageName": "Python.Python.3.12",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "OpenJS.NodeJS",
+    "Provider": "Winget",
+    "Version": ""
+  },
+  {
+    "Enabled": true,
+    "PackageName": "git",
+    "Provider": "Chocolatey",
+    "Version": ""
+  }
+]
