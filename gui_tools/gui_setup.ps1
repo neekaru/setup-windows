@@ -84,7 +84,7 @@ function Set-PlaceholderText {
     return $Content
 }
 
-function BoolString([bool]$b) {
+function ConvertTo-BoolString([bool]$b) {
     if ($b) { return '$true' }
     return '$false'
 }
@@ -316,16 +316,16 @@ $generateBtn.Add_Click({
     $content = $content -replace [Regex]::Escape("# <URL_INSTALL_MARKER>"), $urlBlock
 
     $map = @{
-        "ENABLE_CHOCOLATEY_INSTALL" = (BoolString [bool]$enableChocoInstall.IsChecked)
-        "ENABLE_WINGET_INSTALL" = (BoolString [bool]$enableWingetInstall.IsChecked)
-        "ENABLE_SCOOP_INSTALL" = (BoolString [bool]$enableScoopInstall.IsChecked)
-        "ENABLE_VCREDIST_INSTALL" = (BoolString [bool]$enableVCRedist.IsChecked)
+        "ENABLE_CHOCOLATEY_INSTALL" = (ConvertTo-BoolString [bool]$enableChocoInstall.IsChecked)
+        "ENABLE_WINGET_INSTALL" = (ConvertTo-BoolString [bool]$enableWingetInstall.IsChecked)
+        "ENABLE_SCOOP_INSTALL" = (ConvertTo-BoolString [bool]$enableScoopInstall.IsChecked)
+        "ENABLE_VCREDIST_INSTALL" = (ConvertTo-BoolString [bool]$enableVCRedist.IsChecked)
         "VCREDIST_URL" = $vcUrlBox.Text
         "VCREDIST_ARGS" = $vcArgsBox.Text
-        "ENABLE_DXSETUP_INSTALL" = (BoolString [bool]$enableDxSetup.IsChecked)
+        "ENABLE_DXSETUP_INSTALL" = (ConvertTo-BoolString [bool]$enableDxSetup.IsChecked)
         "DXSETUP_URL" = $dxUrlBox.Text
-        "ENABLE_CLEANUP" = (BoolString [bool]$enableCleanup.IsChecked)
-        "ENABLE_LOG" = (BoolString [bool]$enableLog.IsChecked)
+        "ENABLE_CLEANUP" = (ConvertTo-BoolString [bool]$enableCleanup.IsChecked)
+        "ENABLE_LOG" = (ConvertTo-BoolString [bool]$enableLog.IsChecked)
     }
 
     $content = Set-PlaceholderText -Content $content -Map $map

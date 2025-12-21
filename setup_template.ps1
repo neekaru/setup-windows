@@ -24,7 +24,7 @@ $LogFilePath = Join-Path ([Environment]::GetFolderPath("Desktop")) ("software_in
 # ------------------------------------------------------------------------------
 # Helper functions
 # ------------------------------------------------------------------------------
-function Convert-ToList {
+function ConvertTo-List {
     param([string]$Value)
     if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
     return $Value -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
@@ -164,7 +164,7 @@ if ($EnableScoopInstall) {
 # Install Visual C++ Redistributables
 if ($EnableVCRedistInstall) {
     Invoke-DownloadFile -Url $VcRedistUrl -OutputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
-    Install-SoftwareManually -InstallerPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -Arguments (Convert-ToList $VcRedistArgs) -Wait
+    Install-SoftwareManually -InstallerPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -Arguments (ConvertTo-List $VcRedistArgs) -Wait
 }
 
 if ($EnableDxSetupInstall) {
