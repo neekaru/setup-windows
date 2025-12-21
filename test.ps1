@@ -7,14 +7,14 @@ Import-Module ./utils/program_utils.psm1 -Force
 # $installedPrograms = List-ProgramsInstalled -ProgramNames $programsToCheck
 # foreach ($program in $installedPrograms.GetEnumerator()) {
 #     if ($program.Value) {
-#         Write-Host "$($program.Key) is installed."
+#         Write-Output "$($program.Key) is installed."
 #     } else {
-#         Write-Host "$($program.Key) is NOT installed."
+#         Write-Output "$($program.Key) is NOT installed."
 #     }
 # }
 
 $allInstalledPrograms = Get-AllInstalledPrograms
-Write-Host "Installed Programs:"
+Write-Output "Installed Programs:"
 foreach ($program in $allInstalledPrograms) {
-    Write-Host $program
+    Write-Output $program
 }

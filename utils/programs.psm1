@@ -23,7 +23,7 @@ function Test-PackageManager {
     return $false
 }
 
-function Get-AvailablePackageManagers {
+function Get-AvailablePackageManager {
     $available = @()
     
     if (Test-PackageManager -Manager 'Chocolatey') {
@@ -55,7 +55,7 @@ function Install-WithChocolatey {
             return $false
         }
 
-        Write-Host "Installing with Chocolatey: $PackageName" -ForegroundColor Cyan
+        Write-Verbose "Installing with Chocolatey: $PackageName"
 
         $chocoArgs = @('install', $PackageName, '-y')
 
@@ -74,7 +74,7 @@ function Install-WithChocolatey {
         & choco @chocoArgs
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "Successfully installed $PackageName with Chocolatey" -ForegroundColor Green
+            Write-Verbose "Successfully installed $PackageName with Chocolatey"
             return $true
         } else {
             Write-Error "Chocolatey installation failed with exit code: $LASTEXITCODE"
@@ -102,7 +102,7 @@ function Install-WithWinget {
             return $false
         }
 
-        Write-Host "Installing with Winget: $PackageName" -ForegroundColor Cyan
+        Write-Verbose "Installing with Winget: $PackageName"
 
         $wingetArgs = @('install', '--id', $PackageName, '-e', '-h')
 
@@ -121,7 +121,7 @@ function Install-WithWinget {
         & winget @wingetArgs
 
         if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 0x80070666) {  # 0 = success, 0x80070666 = already installed
-            Write-Host "Successfully installed $PackageName with Winget" -ForegroundColor Green
+            Write-Verbose "Successfully installed $PackageName with Winget"
             return $true
         } else {
             Write-Error "Winget installation failed with exit code: $LASTEXITCODE"
@@ -148,7 +148,7 @@ function Install-WithScoop {
             return $false
         }
 
-        Write-Host "Installing with Scoop: $PackageName" -ForegroundColor Cyan
+        Write-Verbose "Installing with Scoop: $PackageName"
 
         $scoopArgs = @('install', $PackageName)
 
@@ -163,7 +163,7 @@ function Install-WithScoop {
         & scoop @scoopArgs
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "Successfully installed $PackageName with Scoop" -ForegroundColor Green
+            Write-Verbose "Successfully installed $PackageName with Scoop"
             return $true
         } else {
             Write-Error "Scoop installation failed with exit code: $LASTEXITCODE"
@@ -190,9 +190,9 @@ function Install-SoftwareFromUrl {
     )
 
     try {
-        Write-Host "Installing software from URL" -ForegroundColor Cyan
-        Write-Host "URL: $Url"
-        Write-Host "Output: $OutputPath"
+        Write-Verbose "Installing software from URL"
+        Write-Verbose "URL: $Url"
+        Write-Verbose "Output: $OutputPath"
 
         # Import downloader module if available
         $downloadModule = Get-Module -Name download -ErrorAction SilentlyContinue
@@ -201,7 +201,7 @@ function Install-SoftwareFromUrl {
         }
 
         # Download the file
-        Write-Host "Downloading installer..." -ForegroundColor Yellow
+        Write-Verbose "Downloading installer..."
         $downloadSuccess = Invoke-DownloadFile -Url $Url -OutputPath $OutputPath -TimeoutSeconds $TimeoutSeconds
         
         if (-not $downloadSuccess) {
@@ -215,10 +215,10 @@ function Install-SoftwareFromUrl {
         }
 
         $installerFile = Get-Item $OutputPath
-        Write-Host "Downloaded: $($installerFile.Name) ($($installerFile.Length) bytes)" -ForegroundColor Green
+        Write-Verbose "Downloaded: $($installerFile.Name) ($($installerFile.Length) bytes)"
 
         # Execute installer
-        Write-Host "Executing installer..." -ForegroundColor Yellow
+        Write-Verbose "Executing installer..."
         $processArgs = @{
             FilePath = $OutputPath
             Wait = $true
@@ -227,18 +227,18 @@ function Install-SoftwareFromUrl {
 
         if ($InstallArguments) {
             $processArgs['ArgumentList'] = $InstallArguments
-            Write-Host "Install arguments: $($InstallArguments -join ' ')"
+            Write-Verbose "Install arguments: $($InstallArguments -join ' ')"
         }
 
         $process = Start-Process @processArgs -PassThru
         $exitCode = $process.ExitCode
 
         if ($exitCode -eq 0) {
-            Write-Host "Software installed successfully" -ForegroundColor Green
+            Write-Verbose "Software installed successfully"
             
             if ($RemoveInstaller) {
                 Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
-                Write-Host "Installer removed: $OutputPath"
+                Write-Verbose "Installer removed: $OutputPath"
             }
             
             return $true
@@ -270,11 +270,11 @@ function Install-SoftwareManually {
         }
 
         $installerFile = Get-Item $InstallerPath
-        Write-Host "Running installer: $($installerFile.Name)" -ForegroundColor Cyan
-        Write-Host "Path: $InstallerPath"
+        Write-Verbose "Running installer: $($installerFile.Name)"
+        Write-Verbose "Path: $InstallerPath"
 
         if ($Arguments) {
-            Write-Host "Arguments: $($Arguments -join ' ')"
+            Write-Verbose "Arguments: $($Arguments -join ' ')"
         }
 
         $processArgs = @{
@@ -292,14 +292,14 @@ function Install-SoftwareManually {
         if ($Wait) {
             $exitCode = $process.ExitCode
             if ($exitCode -eq 0) {
-                Write-Host "Installer completed successfully" -ForegroundColor Green
+                Write-Verbose "Installer completed successfully"
                 return $true
             } else {
                 Write-Warning "Installer exited with code: $exitCode"
                 return $true  # Return true since installer ran, just may have non-zero exit code
             }
         } else {
-            Write-Host "Installer started with PID: $($process.Id)" -ForegroundColor Green
+            Write-Verbose "Installer started with PID: $($process.Id)"
             return $true
         }
     } catch {
@@ -310,7 +310,7 @@ function Install-SoftwareManually {
 
 function Get-SoftwareInstallationInfo {
     $info = @{
-        AvailableManagers = Get-AvailablePackageManagers
+        AvailableManagers = Get-AvailablePackageManager
         Chocolatey = @{
             Available = Test-PackageManager -Manager 'Chocolatey'
             Version = if (Test-PackageManager -Manager 'Chocolatey') { 
@@ -342,10 +342,11 @@ function Get-SoftwareInstallationInfo {
 
 Export-ModuleMember -Function `
     Test-PackageManager, `
-    Get-AvailablePackageManagers, `
+    Get-AvailablePackageManager, `
     Install-WithChocolatey, `
     Install-WithWinget, `
     Install-WithScoop, `
     Install-SoftwareFromUrl, `
     Install-SoftwareManually, `
     Get-SoftwareInstallationInfo
+

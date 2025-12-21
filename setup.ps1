@@ -11,7 +11,7 @@ Import-Module ./utils/file.psm1 -Force
 
 # Function to clean temporary and cache folders
 function Clear-SystemCache {
-    Write-Host "Starting system cleanup..."
+    Write-Output "Starting system cleanup..."
     
     # Array of paths to clean
     $cleanupPaths = @(
@@ -25,7 +25,7 @@ function Clear-SystemCache {
 
     foreach ($path in $cleanupPaths) {
         if (Test-Path $path) {
-            Write-Host "Cleaning: $path"
+            Write-Output "Cleaning: $path"
             try {
                 Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction SilentlyContinue | 
                     Remove-Item -Force -ErrorAction SilentlyContinue
@@ -33,38 +33,41 @@ function Clear-SystemCache {
                     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             }
             catch {
-                Write-Host "Error cleaning $path : $_"
+                Write-Output "Error cleaning $path : $_"
             }
         }
     }
 
     # Clear DNS Cache
-    Write-Host "Clearing DNS Cache..."
+    Write-Output "Clearing DNS Cache..."
     ipconfig /flushdns
 
     # Clear Windows Store Cache
-    Write-Host "Clearing Windows Store Cache..."
+    Write-Output "Clearing Windows Store Cache..."
     wsreset.exe
 
     # Clear Thumbnail Cache
-    Write-Host "Clearing Thumbnail Cache..."
+    Write-Output "Clearing Thumbnail Cache..."
     Remove-Item "$env:USERPROFILE\AppData\Local\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue
 
-    Write-Host "System cleanup completed!"
+    Write-Output "System cleanup completed!"
 }
 
 # Install Chocolatey
-Write-Host "Installing Chocolatey..."
+Write-Output "Installing Chocolatey..."
 if (!(Test-Path "$env:ProgramData\chocolatey\choco.exe")) {
     Set-ExecutionPolicy Bypass -Scope Process -Force
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    $chocoScript = Join-Path $env:TEMP "install_chocolatey.ps1"
+    (New-Object System.Net.WebClient).DownloadFile('https://chocolatey.org/install.ps1', $chocoScript)
+    & $chocoScript
+    Remove-Item $chocoScript -Force -ErrorAction SilentlyContinue
 }
 
 # Install WinGet if not present
-Write-Host "Checking WinGet installation..."
+Write-Output "Checking WinGet installation..."
 if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Host "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."
+    Write-Output "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."
     $packages = @(
         "Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe.Appx",
         "Microsoft.VCLibs.140.00_14.0.33519.0_x86__8wekyb3d8bbwe.Appx",
@@ -80,7 +83,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
         Add-AppxPackage -Path $output_path
     }
 
-    Write-Host "Installing WinGet..."
+    Write-Output "Installing WinGet..."
     Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
     Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
 }
@@ -119,7 +122,7 @@ Install-SoftwareManually -InstallerPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.e
 # Clean up system after installations
 Clear-SystemCache
 
-Write-Host "Installation and cleanup complete!"
+Write-Output "Installation and cleanup complete!"
 
 # Optional: Create a log file
 $logContent = @"
@@ -136,4 +139,5 @@ System cleanup performed:
 "@
 
 $logContent | Out-File "$env:USERPROFILE\Desktop\software_installation_log_$(Get-Date -Format "yyyyMMdd_HHmmss").txt"
-Write-Host "Log file created on desktop: software_installation_log_$(Get-Date -Format "yyyyMMdd_HHmmss").txt"
+Write-Output "Log file created on desktop: software_installation_log_$(Get-Date -Format "yyyyMMdd_HHmmss").txt"
+

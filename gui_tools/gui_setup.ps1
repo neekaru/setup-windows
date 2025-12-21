@@ -56,19 +56,22 @@ $enableCleanup.IsChecked = $true
 $enableLog.IsChecked = $true
 
 function New-PackageRow {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [bool]$Enabled = $true,
         [string]$PackageName = "",
         [string]$Version = ""
     )
-    [PSCustomObject]@{
-        Enabled = $Enabled
-        PackageName = $PackageName
-        Version = $Version
+    if ($PSCmdlet.ShouldProcess($PackageName, "Create package row")) {
+        [PSCustomObject]@{
+            Enabled = $Enabled
+            PackageName = $PackageName
+            Version = $Version
+        }
     }
 }
 
-function Replace-Placeholders {
+function Set-PlaceholderText {
     param(
         [string]$Content,
         [hashtable]$Map
@@ -76,7 +79,7 @@ function Replace-Placeholders {
     foreach ($key in $Map.Keys) {
         $value = $Map[$key]
         $pattern = "\$\{" + [Regex]::Escape($key) + "\}"
-        $Content = [Regex]::Replace($Content, $pattern, { param($m) $value })
+        $Content = [Regex]::Replace($Content, $pattern, [string]$value)
     }
     return $Content
 }
@@ -86,12 +89,13 @@ function BoolString([bool]$b) {
     return '$false'
 }
 
-function Escape-PowerShellString {
+function ConvertTo-PowerShellString {
     param([string]$Value)
     return $Value.Replace('"', '`"')
 }
 
 function New-UrlRow {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [bool]$Enabled = $true,
         [string]$Name = "",
@@ -100,17 +104,19 @@ function New-UrlRow {
         [string]$InstallArgs = "",
         [bool]$RemoveInstaller = $false
     )
-    [PSCustomObject]@{
-        Enabled = $Enabled
-        Name = $Name
-        Url = $Url
-        OutputPath = $OutputPath
-        InstallArgs = $InstallArgs
-        RemoveInstaller = $RemoveInstaller
+    if ($PSCmdlet.ShouldProcess($Name, "Create URL install row")) {
+        [PSCustomObject]@{
+            Enabled = $Enabled
+            Name = $Name
+            Url = $Url
+            OutputPath = $OutputPath
+            InstallArgs = $InstallArgs
+            RemoveInstaller = $RemoveInstaller
+        }
     }
 }
 
-function Build-UrlInstallCommands {
+function Get-UrlInstallCommand {
     param([System.Collections.IEnumerable]$Items)
     $lines = New-Object System.Collections.Generic.List[string]
 
@@ -119,14 +125,14 @@ function Build-UrlInstallCommands {
         if ([string]::IsNullOrWhiteSpace($item.Url)) { continue }
         if ([string]::IsNullOrWhiteSpace($item.OutputPath)) { continue }
 
-        $url = Escape-PowerShellString $item.Url
-        $out = Escape-PowerShellString $item.OutputPath
+        $url = ConvertTo-PowerShellString $item.Url
+        $out = ConvertTo-PowerShellString $item.OutputPath
         $argsBlock = ""
 
         if (-not [string]::IsNullOrWhiteSpace($item.InstallArgs)) {
             $argList = $item.InstallArgs -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
             if ($argList.Count -gt 0) {
-                $argItems = $argList | ForEach-Object { "`"$((Escape-PowerShellString $_))`"" }
+                $argItems = $argList | ForEach-Object { "`"$((ConvertTo-PowerShellString $_))`"" }
                 $argsBlock = " -InstallArguments @($($argItems -join ", "))"
             }
         }
@@ -200,7 +206,7 @@ if (Test-Path $urlListPath) {
 }
 
 
-function Build-PackageCommands {
+function Get-PackageCommand {
     param(
         [System.Collections.IEnumerable]$WingetItems,
         [System.Collections.IEnumerable]$ChocoItems,
@@ -211,11 +217,11 @@ function Build-PackageCommands {
     foreach ($item in $WingetItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
-        $name = Escape-PowerShellString $item.PackageName
+        $name = ConvertTo-PowerShellString $item.PackageName
         if ([string]::IsNullOrWhiteSpace($item.Version)) {
             $lines.Add("Install-WithWinget -PackageName `"$name`"")
         } else {
-            $ver = Escape-PowerShellString $item.Version
+            $ver = ConvertTo-PowerShellString $item.Version
             $lines.Add("Install-WithWinget -PackageName `"$name`" -Version `"$ver`"")
         }
     }
@@ -223,11 +229,11 @@ function Build-PackageCommands {
     foreach ($item in $ChocoItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
-        $name = Escape-PowerShellString $item.PackageName
+        $name = ConvertTo-PowerShellString $item.PackageName
         if ([string]::IsNullOrWhiteSpace($item.Version)) {
             $lines.Add("Install-WithChocolatey -PackageName `"$name`"")
         } else {
-            $ver = Escape-PowerShellString $item.Version
+            $ver = ConvertTo-PowerShellString $item.Version
             $lines.Add("Install-WithChocolatey -PackageName `"$name`" -Version `"$ver`"")
         }
     }
@@ -235,7 +241,7 @@ function Build-PackageCommands {
     foreach ($item in $ScoopItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
-        $name = Escape-PowerShellString $item.PackageName
+        $name = ConvertTo-PowerShellString $item.PackageName
         $lines.Add("Install-WithScoop -PackageName `"$name`"")
     }
 
@@ -294,8 +300,8 @@ $generateBtn.Add_Click({
     }
 
     $content = Get-Content -Raw -Path $templateBox.Text
-    $packageBlock = Build-PackageCommands -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems
-    $urlBlock = Build-UrlInstallCommands -Items $urlItems
+    $packageBlock = Get-PackageCommand -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems
+    $urlBlock = Get-UrlInstallCommand -Items $urlItems
 
     if ($content -notmatch "# <PACKAGE_LIST_MARKER>") {
         [System.Windows.MessageBox]::Show("Package list marker not found in template.", "Error", "OK", "Error")
@@ -322,7 +328,7 @@ $generateBtn.Add_Click({
         "ENABLE_LOG" = (BoolString [bool]$enableLog.IsChecked)
     }
 
-    $content = Replace-Placeholders -Content $content -Map $map
+    $content = Set-PlaceholderText -Content $content -Map $map
     $content | Out-File -FilePath $outputBox.Text -Encoding UTF8
 
     [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.", "Success", "OK", "Information")

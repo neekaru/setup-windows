@@ -29,13 +29,13 @@ function Invoke-DownloadFile {
         $winVersion = Get-WindowsVersion
         $isOldWindows = ($winVersion.Major -eq 6 -and $winVersion.Minor -lt 2)
 
-        Write-Host "Downloading from: $Url"
-        Write-Host "Output path: $OutputPath"
-        Write-Host "Windows version: $($winVersion.Major).$($winVersion.Minor)"
+        Write-Verbose "Downloading from: $Url"
+        Write-Verbose "Output path: $OutputPath"
+        Write-Verbose "Windows version: $($winVersion.Major).$($winVersion.Minor)"
 
         if ($isOldWindows) {
             # For Windows 7 and older - use WebClient
-            Write-Host "Using .NET WebClient for legacy Windows support"
+            Write-Verbose "Using .NET WebClient for legacy Windows support"
             $webClient = New-Object System.Net.WebClient
             $webClient.Headers.Add("User-Agent", $UserAgent)
 
@@ -59,7 +59,7 @@ function Invoke-DownloadFile {
             $webClient.Dispose()
         } else {
             # For Windows 8 and newer - use Invoke-WebRequest
-            Write-Host "Using Invoke-WebRequest for modern Windows support"
+            Write-Verbose "Using Invoke-WebRequest for modern Windows support"
 
             $params = @{
                 Uri             = $Url
@@ -92,8 +92,8 @@ function Invoke-DownloadFile {
 
         if (Test-Path $OutputPath) {
             $fileSize = (Get-Item $OutputPath).Length
-            Write-Host "Download completed successfully!"
-            Write-Host "File size: $fileSize bytes"
+            Write-Verbose "Download completed successfully!"
+            Write-Verbose "File size: $fileSize bytes"
             return $true
         } else {
             Write-Error "Download failed: Output file not created"
@@ -125,7 +125,7 @@ function Invoke-DownloadWithRetry {
     $success = $false
 
     while ($retryCount -lt $MaxRetries -and -not $success) {
-        Write-Host "Download attempt $($retryCount + 1) of $MaxRetries"
+        Write-Verbose "Download attempt $($retryCount + 1) of $MaxRetries"
         
         $success = Invoke-DownloadFile `
             -Url $Url `
@@ -136,7 +136,7 @@ function Invoke-DownloadWithRetry {
             -FollowRedirect:$FollowRedirect
 
         if (-not $success -and $retryCount -lt ($MaxRetries - 1)) {
-            Write-Host "Retrying in $RetryDelaySeconds seconds..."
+            Write-Verbose "Retrying in $RetryDelaySeconds seconds..."
             Start-Sleep -Seconds $RetryDelaySeconds
         }
 
@@ -144,7 +144,7 @@ function Invoke-DownloadWithRetry {
     }
 
     if ($success) {
-        Write-Host "Download completed successfully after $retryCount attempt(s)"
+        Write-Verbose "Download completed successfully after $retryCount attempt(s)"
         return $true
     } else {
         Write-Error "Download failed after $MaxRetries attempts"
@@ -184,10 +184,10 @@ function Save-CookiesFromResponse {
         if ($Response.Headers.ContainsKey('Set-Cookie')) {
             $cookies = $Response.Headers['Set-Cookie']
             $cookies | Out-File -FilePath $OutputFile -Force
-            Write-Host "Cookies saved to: $OutputFile"
+            Write-Verbose "Cookies saved to: $OutputFile"
             return $true
         } else {
-            Write-Host "No cookies found in response"
+            Write-Verbose "No cookies found in response"
             return $false
         }
     } catch {
@@ -196,7 +196,7 @@ function Save-CookiesFromResponse {
     }
 }
 
-function Get-HttpHeaders {
+function Get-HttpHeader {
     param (
         [Parameter(Mandatory)]
         [string]$Url,
@@ -250,4 +250,5 @@ function Get-HttpHeaders {
     }
 }
 
-Export-ModuleMember -Function Invoke-DownloadFile, Invoke-DownloadWithRetry, Get-DownloadSpeed, Save-CookiesFromResponse, Get-HttpHeaders
+Export-ModuleMember -Function Invoke-DownloadFile, Invoke-DownloadWithRetry, Get-DownloadSpeed, Save-CookiesFromResponse, Get-HttpHeader
+

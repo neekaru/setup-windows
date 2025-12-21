@@ -55,13 +55,13 @@ function Install-WithChocolatey {
 }
 
 function Install-WithScoop {
-    param([string]$PackageName, [string]$Version)
+    param([string]$PackageName)
     scoop install $PackageName
 }
 
 # Function to clean temporary and cache folders
 function Clear-SystemCache {
-    Write-Host "Starting system cleanup..."
+    Write-Output "Starting system cleanup..."
     
     # Array of paths to clean
     $cleanupPaths = @(
@@ -75,7 +75,7 @@ function Clear-SystemCache {
 
     foreach ($path in $cleanupPaths) {
         if (Test-Path $path) {
-            Write-Host "Cleaning: $path"
+            Write-Output "Cleaning: $path"
             try {
                 Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction SilentlyContinue |
                     Remove-Item -Force -ErrorAction SilentlyContinue
@@ -83,41 +83,44 @@ function Clear-SystemCache {
                     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             }
             catch {
-                Write-Host "Error cleaning $path : $_"
+                Write-Output "Error cleaning $path : $_"
             }
         }
     }
 
     # Clear DNS Cache
-    Write-Host "Clearing DNS Cache..."
+    Write-Output "Clearing DNS Cache..."
     ipconfig /flushdns
 
     # Clear Windows Store Cache
-    Write-Host "Clearing Windows Store Cache..."
+    Write-Output "Clearing Windows Store Cache..."
     wsreset.exe
 
     # Clear Thumbnail Cache
-    Write-Host "Clearing Thumbnail Cache..."
+    Write-Output "Clearing Thumbnail Cache..."
     Remove-Item "$env:USERPROFILE\AppData\Local\Microsoft\Windows\Explorer\thumbcache_*.db" -Force -ErrorAction SilentlyContinue
 
-    Write-Host "System cleanup completed!"
+    Write-Output "System cleanup completed!"
 }
 
 # Install Chocolatey
 if ($EnableChocolateyInstall) {
-    Write-Host "Installing Chocolatey..."
+    Write-Output "Installing Chocolatey..."
     if (!(Test-Path "$env:ProgramData\chocolatey\choco.exe")) {
         Set-ExecutionPolicy Bypass -Scope Process -Force
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    $chocoScript = Join-Path $env:TEMP "install_chocolatey.ps1"
+    (New-Object System.Net.WebClient).DownloadFile('https://chocolatey.org/install.ps1', $chocoScript)
+    & $chocoScript
+    Remove-Item $chocoScript -Force -ErrorAction SilentlyContinue
     }
 }
 
 # Install WinGet if not present
 if ($EnableWingetInstall) {
-    Write-Host "Checking WinGet installation..."
+    Write-Output "Checking WinGet installation..."
     if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-Host "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."
+        Write-Output "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."
         $packages = @(
             "Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe.Appx",
             "Microsoft.VCLibs.140.00_14.0.33519.0_x86__8wekyb3d8bbwe.Appx",
@@ -133,7 +136,7 @@ if ($EnableWingetInstall) {
             Add-AppxPackage -Path $output_path
         }
 
-        Write-Host "Installing WinGet..."
+        Write-Output "Installing WinGet..."
         Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
         Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
     }
@@ -141,11 +144,14 @@ if ($EnableWingetInstall) {
 
 # Install Scoop if not present
 if ($EnableScoopInstall) {
-    Write-Host "Checking Scoop installation..."
+    Write-Output "Checking Scoop installation..."
     if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Host "Scoop not found. Installing Scoop..."
+        Write-Output "Scoop not found. Installing Scoop..."
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Invoke-Expression (Invoke-WebRequest -UseBasicParsing -Uri "https://get.scoop.sh").Content
+        $scoopScript = Join-Path $env:TEMP "install_scoop.ps1"
+        Invoke-WebRequest -UseBasicParsing -Uri "https://get.scoop.sh" -OutFile $scoopScript
+        & $scoopScript
+        Remove-Item $scoopScript -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -171,7 +177,7 @@ if ($EnableCleanup) {
     Clear-SystemCache
 }
 
-Write-Host "Installation and cleanup complete!"
+Write-Output "Installation and cleanup complete!"
 
 # Optional: Create a log file
 if ($EnableLog) {
@@ -189,5 +195,6 @@ System cleanup performed:
 "@
 
     $logContent | Out-File $LogFilePath
-    Write-Host "Log file created: $LogFilePath"
+    Write-Output "Log file created: $LogFilePath"
 }
+

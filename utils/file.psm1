@@ -30,7 +30,7 @@ function Copy-FileHandler {
             Copy-Item -Path $SourcePath -Destination $DestinationPath -Recurse:$Recurse -ErrorAction Stop
         }
 
-        Write-Host "Successfully copied: $SourcePath -> $DestinationPath"
+        Write-Verbose "Successfully copied: $SourcePath -> $DestinationPath"
         return $true
     } catch {
         Write-Error "Failed to copy file: $_"
@@ -61,7 +61,7 @@ function Move-FileHandler {
             Move-Item -Path $SourcePath -Destination $DestinationPath -ErrorAction Stop
         }
 
-        Write-Host "Successfully moved: $SourcePath -> $DestinationPath"
+        Write-Verbose "Successfully moved: $SourcePath -> $DestinationPath"
         return $true
     } catch {
         Write-Error "Failed to move file: $_"
@@ -119,7 +119,7 @@ function Remove-FileToRecycleBin {
             }
         }
 
-        Write-Host "Successfully deleted to recycle bin: $Path"
+        Write-Verbose "Successfully deleted to recycle bin: $Path"
         return $true
     } catch {
         Write-Error "Failed to delete to recycle bin: $_"
@@ -146,53 +146,53 @@ function Remove-FileVerbose {
         $item = Get-Item $Path
         $fullPath = $item.FullName
 
-        Write-Host "Removing file/folder: $fullPath" -ForegroundColor Yellow
+        Write-Verbose "Removing file/folder: $fullPath"
 
         if ($item -is [System.IO.DirectoryInfo]) {
-            Write-Host "Type: Directory"
-            Write-Host "Recurse: $Recurse"
+            Write-Verbose "Type: Directory"
+            Write-Verbose "Recurse: $Recurse"
             
             if (-not $Recurse) {
                 $itemCount = @(Get-ChildItem -Path $fullPath -ErrorAction SilentlyContinue).Count
-                Write-Host "Items in directory: $itemCount"
+                Write-Verbose "Items in directory: $itemCount"
             }
 
             if ($Confirm -and -not $Force) {
                 $response = Read-Host "Are you sure you want to delete this directory? (yes/no)"
                 if ($response -ne 'yes') {
-                    Write-Host "Deletion cancelled"
+                    Write-Verbose "Deletion cancelled"
                     return $false
                 }
             }
 
             if ($Force) {
                 Remove-Item -Path $fullPath -Recurse -Force -ErrorAction Stop
-                Write-Host "Verbose: Directory deleted with -Force flag" -ForegroundColor Green
+                Write-Verbose "Verbose: Directory deleted with -Force flag"
             } else {
                 Remove-Item -Path $fullPath -Recurse -ErrorAction Stop
-                Write-Host "Verbose: Directory deleted" -ForegroundColor Green
+                Write-Verbose "Verbose: Directory deleted"
             }
         } else {
             $fileSize = $item.Length
-            Write-Host "Type: File"
-            Write-Host "Size: $fileSize bytes"
-            Write-Host "Created: $($item.CreationTime)"
-            Write-Host "Modified: $($item.LastWriteTime)"
+            Write-Verbose "Type: File"
+            Write-Verbose "Size: $fileSize bytes"
+            Write-Verbose "Created: $($item.CreationTime)"
+            Write-Verbose "Modified: $($item.LastWriteTime)"
 
             if ($Confirm -and -not $Force) {
                 $response = Read-Host "Are you sure you want to delete this file? (yes/no)"
                 if ($response -ne 'yes') {
-                    Write-Host "Deletion cancelled"
+                    Write-Verbose "Deletion cancelled"
                     return $false
                 }
             }
 
             if ($Force) {
                 Remove-Item -Path $fullPath -Force -ErrorAction Stop
-                Write-Host "Verbose: File deleted with -Force flag" -ForegroundColor Green
+                Write-Verbose "Verbose: File deleted with -Force flag"
             } else {
                 Remove-Item -Path $fullPath -ErrorAction Stop
-                Write-Host "Verbose: File deleted" -ForegroundColor Green
+                Write-Verbose "Verbose: File deleted"
             }
         }
 
@@ -201,7 +201,7 @@ function Remove-FileVerbose {
             return $false
         }
 
-        Write-Host "Successfully deleted: $fullPath" -ForegroundColor Green
+        Write-Verbose "Successfully deleted: $fullPath"
         return $true
     } catch {
         Write-Error "Failed to delete file: $_"
@@ -233,15 +233,15 @@ function Expand-ZipFile {
         }
 
         $zipItem = Get-Item $ZipPath
-        Write-Host "Extracting zip archive: $($zipItem.Name)" -ForegroundColor Cyan
-        Write-Host "Source: $ZipPath" -ForegroundColor Cyan
-        Write-Host "Destination: $ExtractPath" -ForegroundColor Cyan
+        Write-Verbose "Extracting zip archive: $($zipItem.Name)"
+        Write-Verbose "Source: $ZipPath"
+        Write-Verbose "Destination: $ExtractPath"
 
         if (-not (Test-Path $ExtractPath)) {
             New-Item -Path $ExtractPath -ItemType Directory -Force | Out-Null
-            Write-Host "Created extraction directory: $ExtractPath"
+            Write-Verbose "Created extraction directory: $ExtractPath"
         } elseif ($Force) {
-            Write-Host "Extraction directory exists, will overwrite with -Force flag"
+            Write-Verbose "Extraction directory exists, will overwrite with -Force flag"
         } else {
             $existingItems = @(Get-ChildItem -Path $ExtractPath -ErrorAction SilentlyContinue).Count
             if ($existingItems -gt 0) {
@@ -255,12 +255,12 @@ function Expand-ZipFile {
 
         $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
         $fileCount = $zip.Entries.Count
-        Write-Host "Files in archive: $fileCount"
+        Write-Verbose "Files in archive: $fileCount"
 
         if ($ShowContents) {
-            Write-Host "Archive contents:"
+            Write-Verbose "Archive contents:"
             foreach ($entry in $zip.Entries) {
-                Write-Host "  - $($entry.FullName) ($($entry.Length) bytes)"
+                Write-Verbose "  - $($entry.FullName) ($($entry.Length) bytes)"
             }
         }
 
@@ -268,9 +268,9 @@ function Expand-ZipFile {
 
         [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $ExtractPath, $Force)
 
-        Write-Host "Successfully extracted archive" -ForegroundColor Green
+        Write-Verbose "Successfully extracted archive"
         $extractedItems = @(Get-ChildItem -Path $ExtractPath -Recurse -ErrorAction SilentlyContinue).Count
-        Write-Host "Extracted items: $extractedItems"
+        Write-Verbose "Extracted items: $extractedItems"
 
         return $true
     } catch {
@@ -280,5 +280,6 @@ function Expand-ZipFile {
 }
 
 Export-ModuleMember -Function Copy-FileHandler, Move-FileHandler, Remove-FileToRecycleBin, Remove-FileVerbose, Expand-ZipFile 
+
 
 
