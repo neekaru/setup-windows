@@ -26,6 +26,16 @@ jobs:
         run: |
           $files = Get-ChildItem -Path . -Recurse -File -Include *.ps1,*.psm1
           if ($files) {
-            $paths = @($files | ForEach-Object { $_.FullName })
-            Invoke-ScriptAnalyzer -Path $paths -Severity Warning,Error -EnableExit
+            $hasErrors = $false
+            foreach ($file in $files) {
+              Write-Host "Analyzing: $($file.FullName)"
+              $results = Invoke-ScriptAnalyzer -Path $file.FullName -Severity Warning,Error
+              if ($results) {
+                $results | Format-Table -AutoSize
+                $hasErrors = $true
+              }
+            }
+            if ($hasErrors) {
+              exit 1
+            }
           }
