@@ -34,6 +34,7 @@
     Allows inbound traffic for the specific app.exe file.
 #>
 function Set-FirewallRule {
+    [CmdletBinding(SupportsShouldProcess)]
     Params (
         [Parameter(Mandatory)]
         [string]$Path,
@@ -68,8 +69,10 @@ function Set-FirewallRule {
                 $ruleName = "$Action $dir - $($app.BaseName)"
                 
                 # Create the firewall rule
-                New-NetFirewallRule -DisplayName $ruleName -Direction $dir -Action $Action -Program $app.FullName -Enabled True
-                Write-Information "Created rule: $ruleName" -InformationAction Continue
+                if ($PSCmdlet.ShouldProcess($ruleName, "Create firewall rule")) {
+                    New-NetFirewallRule -DisplayName $ruleName -Direction $dir -Action $Action -Program $app.FullName -Enabled True
+                    Write-Information "Created rule: $ruleName" -InformationAction Continue
+                }
             }
         }
     }
@@ -101,7 +104,8 @@ function Set-FirewallRule {
     Delete-FirewallRule -Path "C:\Program Files\MyApp\app.exe" -Action Allow -Direction Inbound
     Deletes the inbound allow rule for the specific app.exe file.
 #>
-function Delete-FirewallRule {
+function Remove-FirewallRule {
+    [CmdletBinding(SupportsShouldProcess)]
     Params (
         [Parameter(Mandatory)]
         [string]$Path,
@@ -139,10 +143,10 @@ function Delete-FirewallRule {
                 try {
                     $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
                     
-                    if ($existingRule) {
+                    if ($existingRule -and $PSCmdlet.ShouldProcess($ruleName, "Remove firewall rule")) {
                         Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction Stop
                         Write-Information "Deleted rule: $ruleName" -InformationAction Continue
-                    } else {
+                    } elseif (-not $existingRule) {
                         Write-Verbose "Rule not found (skipping): $ruleName"
                     }
                 } catch {
@@ -197,8 +201,8 @@ function Delete-FirewallRule {
     Set-Hosts -Action Remove -PresetUrl "https://raw.githubusercontent.com/bebasid/bebasid/master/releases/hosts"
     Removes all entries from the BebasID preset.
 #>
-function Set-Hosts {
-    [CmdletBinding(DefaultParameterSetName = 'Individual')]
+function Set-HostEntry {
+    [CmdletBinding(DefaultParameterSetName = 'Individual', SupportsShouldProcess)]
     Param (
         [Parameter(Mandatory)]
         [ValidateSet('Add', 'Remove')]
@@ -217,7 +221,7 @@ function Set-Hosts {
         [Parameter(ParameterSetName = 'PresetFile')]
         [string]$PresetFile,
 
-        [switch]$Backup = $true
+        [switch]$Backup
     )
 
     # Check for administrator privileges
@@ -312,13 +316,15 @@ function Set-Hosts {
 
     # Write updated content back to hosts file
     try {
-        Set-Content -Path $hostsPath -Value $newContent -Force -ErrorAction Stop
-        Write-Information "Hosts file updated successfully!" -InformationAction Continue
-        
-        # Flush DNS cache
-        Write-Verbose "Flushing DNS cache..."
-        ipconfig /flushdns | Out-Null
-        Write-Information "DNS cache flushed!" -InformationAction Continue
+        if ($PSCmdlet.ShouldProcess($hostsPath, "Update hosts file")) {
+            Set-Content -Path $hostsPath -Value $newContent -Force -ErrorAction Stop
+            Write-Information "Hosts file updated successfully!" -InformationAction Continue
+            
+            # Flush DNS cache
+            Write-Verbose "Flushing DNS cache..."
+            ipconfig /flushdns | Out-Null
+            Write-Information "DNS cache flushed!" -InformationAction Continue
+        }
     } catch {
         Write-Error "Failed to update hosts file: $_"
     }
@@ -328,7 +334,7 @@ function Set-Hosts {
 .SYNOPSIS
     Helper function to parse hosts file content.
 #>
-function Parse-HostsContent {
+function ConvertFrom-HostsContent {
     param([string[]]$Content)
     
     $entries = @()
@@ -359,7 +365,7 @@ function Parse-HostsContent {
 .SYNOPSIS
     Helper function to add entries to hosts content.
 #>
-function Add-HostsEntries {
+function Add-HostEntry {
     param(
         [string[]]$CurrentContent,
         [PSCustomObject[]]$Entries
@@ -392,7 +398,7 @@ function Add-HostsEntries {
 .SYNOPSIS
     Helper function to remove entries from hosts content.
 #>
-function Remove-HostsEntries {
+function Remove-HostEntry {
     param(
         [string[]]$CurrentContent,
         [PSCustomObject[]]$Entries
