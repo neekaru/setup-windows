@@ -27,15 +27,38 @@ jobs:
           $files = Get-ChildItem -Path . -Recurse -File -Include *.ps1,*.psm1 | Where-Object { $_.FullName -notlike "*\examples\*" }
           if ($files) {
             $hasErrors = $false
+            $warningCount = 0
             foreach ($file in $files) {
-              Write-Host "Analyzing: $($file.FullName)"
+              Write-Host "Analyzing: $($file.FullName)" -ForegroundColor Cyan
               $results = Invoke-ScriptAnalyzer -Path $file.FullName -Severity Warning,Error
               if ($results) {
-                $results | Format-Table -AutoSize
-                $hasErrors = $true
+                # Separate errors and warnings
+                $errors = $results | Where-Object { $_.Severity -eq 'Error' }
+                $warnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+                
+                if ($errors) {
+                  Write-Host "`nErrors found:" -ForegroundColor Red
+                  $errors | Format-Table -AutoSize
+                  $hasErrors = $true
+                }
+                
+                if ($warnings) {
+                  Write-Host "`nWarnings found:" -ForegroundColor Yellow
+                  $warnings | Format-Table -AutoSize
+                  $warningCount += $warnings.Count
+                }
               }
             }
+            
+            if ($warningCount -gt 0) {
+              Write-Host "`nTotal warnings: $warningCount" -ForegroundColor Yellow
+              Write-Host "Warnings are informational and do not fail the build." -ForegroundColor Yellow
+            }
+            
             if ($hasErrors) {
+              Write-Host "`nBuild failed due to errors!" -ForegroundColor Red
               exit 1
+            } else {
+              Write-Host "`nBuild passed! All files analyzed successfully." -ForegroundColor Green
             }
           }
