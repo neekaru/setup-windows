@@ -479,4 +479,16 @@ function Expand-ZipFile {
     }
 }
 
+# Export functions
 Export-ModuleMember -Function Copy-FileHandler, Move-FileHandler, Remove-FileToRecycleBin, Remove-FileVerbose, Expand-ZipFile
+
+# Create aliases for backward compatibility and common alternative names
+New-Alias -Name Copy-File -Value Copy-FileHandler
+New-Alias -Name Move-File -Value Move-FileHandler
+New-Alias -Name Delete-FileToRecycleBin -Value Remove-FileToRecycleBin
+New-Alias -Name Delete-File -Value Remove-FileVerbose
+New-Alias -Name Extract-ZipFile -Value Expand-ZipFile
+New-Alias -Name Unzip-File -Value Expand-ZipFile
+
+# Export aliases
+Export-ModuleMember -Alias Copy-File, Move-File, Delete-FileToRecycleBin, Delete-File, Extract-ZipFile, Unzip-File

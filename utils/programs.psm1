@@ -350,3 +350,14 @@ Export-ModuleMember -Function `
     Install-SoftwareManually, `
     Get-SoftwareInstallationInfo
 
+
+# Create aliases for backward compatibility and common alternative names
+New-Alias -Name Check-PackageManager -Value Test-PackageManager
+New-Alias -Name Install-Chocolatey -Value Install-WithChocolatey
+New-Alias -Name Install-Winget -Value Install-WithWinget
+New-Alias -Name Install-Scoop -Value Install-WithScoop
+New-Alias -Name Install-FromUrl -Value Install-SoftwareFromUrl
+New-Alias -Name Install-Software -Value Install-SoftwareManually
+
+# Export aliases
+Export-ModuleMember -Alias Check-PackageManager, Install-Chocolatey, Install-Winget, Install-Scoop, Install-FromUrl, Install-Software

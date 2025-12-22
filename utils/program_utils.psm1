@@ -229,4 +229,14 @@ function Get-InstalledProgram {
     return $filteredResults
 }
 
+# Export functions
 Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram
+
+# Create aliases for backward compatibility and common alternative names
+New-Alias -Name Check-ProgramInstalled -Value Test-ProgramInstalled
+New-Alias -Name Test-ProgramExists -Value Test-ProgramInstalled
+New-Alias -Name Get-InstalledPrograms -Value Get-InstalledProgram
+New-Alias -Name List-InstalledPrograms -Value Get-InstalledProgram
+
+# Export aliases
+Export-ModuleMember -Alias Check-ProgramInstalled, Test-ProgramExists, Get-InstalledPrograms, List-InstalledPrograms

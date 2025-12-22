@@ -281,7 +281,7 @@ function Set-Hosts {
         Write-Host "Downloading preset from: $PresetUrl" -ForegroundColor Cyan
         try {
             $presetContent = (Invoke-WebRequest -Uri $PresetUrl -UseBasicParsing).Content -split "`n"
-            $entriesToProcess = Parse-HostsContent -Content $presetContent
+            $entriesToProcess = ConvertFrom-HostsContent -Content $presetContent
             Write-Host "Downloaded $($entriesToProcess.Count) entries from preset" -ForegroundColor Green
         } catch {
             Write-Error "Failed to download preset: $_"
@@ -295,7 +295,7 @@ function Set-Hosts {
         }
         try {
             $presetContent = Get-Content -Path $PresetFile
-            $entriesToProcess = Parse-HostsContent -Content $presetContent
+            $entriesToProcess = ConvertFrom-HostsContent -Content $presetContent
             Write-Host "Loaded $($entriesToProcess.Count) entries from preset file" -ForegroundColor Green
         } catch {
             Write-Error "Failed to read preset file: $_"
@@ -305,9 +305,9 @@ function Set-Hosts {
 
     # Perform the action
     if ($Action -eq 'Add') {
-        $newContent = Add-HostsEntries -CurrentContent $hostsContent -Entries $entriesToProcess
+        $newContent = Add-HostEntry -CurrentContent $hostsContent -Entries $entriesToProcess
     } else {
-        $newContent = Remove-HostsEntries -CurrentContent $hostsContent -Entries $entriesToProcess
+        $newContent = Remove-HostEntry -CurrentContent $hostsContent -Entries $entriesToProcess
     }
 
     # Write updated content back to hosts file
@@ -437,3 +437,13 @@ function Remove-HostsEntries {
     Write-Host "`nTotal entries removed: $removedCount" -ForegroundColor Cyan
     return $newContent
 }
+
+# Export functions
+Export-ModuleMember -Function Set-FirewallRule, Remove-FirewallRule, Set-HostEntry
+
+# Create aliases for backward compatibility
+New-Alias -Name Delete-FirewallRule -Value Remove-FirewallRule
+New-Alias -Name Set-Hosts -Value Set-HostEntry
+
+# Export aliases
+Export-ModuleMember -Alias Delete-FirewallRule, Set-Hosts

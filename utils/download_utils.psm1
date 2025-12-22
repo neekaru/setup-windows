@@ -252,3 +252,13 @@ function Get-HttpHeader {
 
 Export-ModuleMember -Function Invoke-DownloadFile, Invoke-DownloadWithRetry, Get-DownloadSpeed, Save-CookiesFromResponse, Get-HttpHeader
 
+
+# Create aliases for backward compatibility and common alternative names
+New-Alias -Name Download-File -Value Invoke-DownloadFile
+New-Alias -Name Download-FileWithRetry -Value Invoke-DownloadWithRetry
+New-Alias -Name Get-FileInfo -Value Get-DownloadSpeed
+New-Alias -Name Save-Cookies -Value Save-CookiesFromResponse
+New-Alias -Name Get-Headers -Value Get-HttpHeader
+
+# Export aliases
+Export-ModuleMember -Alias Download-File, Download-FileWithRetry, Get-FileInfo, Save-Cookies, Get-Headers
