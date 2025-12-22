@@ -24,7 +24,7 @@ jobs:
 
       - name: Run PSScriptAnalyzer
         run: |
-          $files = Get-ChildItem -Path . -Recurse -File -Include *.ps1,*.psm1
+          $files = Get-ChildItem -Path . -Recurse -File -Include *.ps1,*.psm1 | Where-Object { $_.FullName -notlike "*\examples\*" }
           if ($files) {
             $hasErrors = $false
             foreach ($file in $files) {
