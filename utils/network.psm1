@@ -69,7 +69,7 @@ function Set-FirewallRule {
                 
                 # Create the firewall rule
                 New-NetFirewallRule -DisplayName $ruleName -Direction $dir -Action $Action -Program $app.FullName -Enabled True
-                Write-Host "Created rule: $ruleName" -ForegroundColor Green
+                Write-Information "Created rule: $ruleName" -InformationAction Continue
             }
         }
     }
@@ -141,9 +141,9 @@ function Delete-FirewallRule {
                     
                     if ($existingRule) {
                         Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction Stop
-                        Write-Host "Deleted rule: $ruleName" -ForegroundColor Yellow
+                        Write-Information "Deleted rule: $ruleName" -InformationAction Continue
                     } else {
-                        Write-Host "Rule not found (skipping): $ruleName" -ForegroundColor Gray
+                        Write-Verbose "Rule not found (skipping): $ruleName"
                     }
                 } catch {
                     Write-Warning "Failed to delete rule '$ruleName': $_"
@@ -241,7 +241,7 @@ function Set-Hosts {
         $backupPath = "$hostsPath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
         try {
             Copy-Item -Path $hostsPath -Destination $backupPath -Force
-            Write-Host "Backup created: $backupPath" -ForegroundColor Cyan
+            Write-Information "Backup created: $backupPath" -InformationAction Continue
         } catch {
             Write-Warning "Failed to create backup: $_"
         }
@@ -278,11 +278,11 @@ function Set-Hosts {
         }
     } elseif ($PSCmdlet.ParameterSetName -eq 'PresetUrl') {
         # Download preset from URL
-        Write-Host "Downloading preset from: $PresetUrl" -ForegroundColor Cyan
+        Write-Information "Downloading preset from: $PresetUrl" -InformationAction Continue
         try {
             $presetContent = (Invoke-WebRequest -Uri $PresetUrl -UseBasicParsing).Content -split "`n"
             $entriesToProcess = ConvertFrom-HostsContent -Content $presetContent
-            Write-Host "Downloaded $($entriesToProcess.Count) entries from preset" -ForegroundColor Green
+            Write-Information "Downloaded $($entriesToProcess.Count) entries from preset" -InformationAction Continue
         } catch {
             Write-Error "Failed to download preset: $_"
             return
@@ -296,7 +296,7 @@ function Set-Hosts {
         try {
             $presetContent = Get-Content -Path $PresetFile
             $entriesToProcess = ConvertFrom-HostsContent -Content $presetContent
-            Write-Host "Loaded $($entriesToProcess.Count) entries from preset file" -ForegroundColor Green
+            Write-Information "Loaded $($entriesToProcess.Count) entries from preset file" -InformationAction Continue
         } catch {
             Write-Error "Failed to read preset file: $_"
             return
@@ -313,12 +313,12 @@ function Set-Hosts {
     # Write updated content back to hosts file
     try {
         Set-Content -Path $hostsPath -Value $newContent -Force -ErrorAction Stop
-        Write-Host "Hosts file updated successfully!" -ForegroundColor Green
+        Write-Information "Hosts file updated successfully!" -InformationAction Continue
         
         # Flush DNS cache
-        Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
+        Write-Verbose "Flushing DNS cache..."
         ipconfig /flushdns | Out-Null
-        Write-Host "DNS cache flushed!" -ForegroundColor Green
+        Write-Information "DNS cache flushed!" -InformationAction Continue
     } catch {
         Write-Error "Failed to update hosts file: $_"
     }
@@ -377,14 +377,14 @@ function Add-HostsEntries {
             # Add new entry
             $newLine = "$($entry.IPAddress)`t$($entry.Hostname)"
             $newContent.Add($newLine) | Out-Null
-            Write-Host "Added: $newLine" -ForegroundColor Green
+            Write-Information "Added: $newLine" -InformationAction Continue
             $addedCount++
         } else {
-            Write-Host "Already exists: $($entry.IPAddress) $($entry.Hostname)" -ForegroundColor Gray
+            Write-Verbose "Already exists: $($entry.IPAddress) $($entry.Hostname)"
         }
     }
 
-    Write-Host "`nTotal entries added: $addedCount" -ForegroundColor Cyan
+    Write-Information "Total entries added: $addedCount" -InformationAction Continue
     return $newContent
 }
 
@@ -423,7 +423,7 @@ function Remove-HostsEntries {
 
             if ($line -match $pattern) {
                 $shouldKeep = $false
-                Write-Host "Removed: $trimmedLine" -ForegroundColor Yellow
+                Write-Information "Removed: $trimmedLine" -InformationAction Continue
                 $removedCount++
                 break
             }
@@ -434,7 +434,7 @@ function Remove-HostsEntries {
         }
     }
 
-    Write-Host "`nTotal entries removed: $removedCount" -ForegroundColor Cyan
+    Write-Information "Total entries removed: $removedCount" -InformationAction Continue
     return $newContent
 }
 
@@ -447,3 +447,5 @@ New-Alias -Name Set-Hosts -Value Set-HostEntry
 
 # Export aliases
 Export-ModuleMember -Alias Delete-FirewallRule, Set-Hosts
+
+
