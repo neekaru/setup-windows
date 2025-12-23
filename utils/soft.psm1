@@ -1,7 +1,7 @@
 
 # this handler for install winget itself 
-Import-Module "$PSScriptRoot/download.psm1" -Force
-Import-Module "$PSScriptRoot/execution.psm1" -Force
+Import-Module (Join-Path $PSScriptRoot "download.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "execution.psm1") -Force
 
 function Install-WingetBinary {
     # params needs to force install winget if not present

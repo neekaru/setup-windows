@@ -31,11 +31,11 @@ function ConvertTo-List {
 }
 
 # Import utility modules
-Import-Module ./utils/download.psm1 -Force
-Import-Module ./utils/programs.psm1 -Force
-Import-Module ./utils/file.psm1 -Force
-Import-Module ./utils/execution.psm1 -Force
-Import-Module ./utils/soft.psm1 -Force
+Import-Module (Join-Path $PSScriptRoot "utils\download.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\programs.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\file.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\execution.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1") -Force
 
 # Package manager wrappers (allow optional -Version)
 function Install-WithWinget {
