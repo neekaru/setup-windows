@@ -22,7 +22,7 @@ function Invoke-DownloadFile {
         [switch]$FollowRedirect,
         [int]$TimeoutSeconds = 30,
         [switch]$UseBasicParsing,
-        [string]$UserAgent = "PowerShell/Downloader"
+        [string]$UserAgent = "Wget/1.21.3"
     )
 
     try {
@@ -82,7 +82,7 @@ function Invoke-DownloadFile {
             }
 
             if ($FollowRedirect) {
-                $params['MaximumRedirection'] = 5
+                $params['MaximumRedirection'] = 20
             } else {
                 $params['MaximumRedirection'] = 0
             }

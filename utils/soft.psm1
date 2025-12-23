@@ -8,7 +8,8 @@ function Install-WingetBinary {
     param(
         [bool]$ForceInstall = $false,
         [ValidateSet('Never', 'Retry', 'Force')]
-        [string]$ConhostMode = 'Never'
+        [string]$ConhostMode = 'Never',
+        [bool]$IgnoreHashMismatch = $true
     )
     # get OS info
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
@@ -52,6 +53,9 @@ function Install-WingetBinary {
     if ($ForceInstall) {
         $wingetArgs += " -Force"
     }
+    if ($IgnoreHashMismatch) {
+        $wingetArgs += " -CheckHashMatch:`$false"
+    }
     $wingetArgs += " -Debug"
     
     Invoke-Command -Commands @($wingetArgs) -ConhostMode $ConhostMode -WaitForExit
@@ -79,22 +83,47 @@ function Install-ChocolateyBinary {
 # this for install scoop binary if not present
 function Install-ScoopBinary {
     # check if scoop is already installed
-    $scoopPath = Get-Command scoop.exe -ErrorAction SilentlyContinue
+    $scoopPath = Get-Command scoop -ErrorAction SilentlyContinue
     if ($scoopPath) {
         Write-Output "Scoop is already installed at $($scoopPath.Path)."
         return
     }
 
-    # Install Scoop
-    Write-Output "Installing Scoop..."
-    Set-ExecutionPolicyWrapper -ExecutionPolicy Bypass -Scope Process
+    # Install Scoop in user mode (non-admin)
+    Write-Output "Installing Scoop in user mode..."
+    
+    # Create scoop directory if it doesn't exist
     if (-not (Test-Path "$env:USERPROFILE\scoop")) {
         New-Item -ItemType Directory -Path "$env:USERPROFILE\scoop" -Force | Out-Null
     }
-    $scoopScript = "$env:TEMP\install-scoop.ps1"
-    Invoke-WebRequest -UseBasicParsing -Uri "https://get.scoop.sh" -OutFile $scoopScript
-    & $scoopScript
-    Remove-Item $scoopScript -Force -ErrorAction SilentlyContinue
     
+    # Download and run scoop installer in a new non-admin PowerShell process
+    $scoopInstallScript = @"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+`$env:SCOOP = '$env:USERPROFILE\scoop'
+[System.Environment]::SetEnvironmentVariable('SCOOP', `$env:SCOOP, 'User')
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+"@
+    
+    $scoopScriptPath = "$env:TEMP\install-scoop-temp.ps1"
+    $scoopInstallScript | Out-File -FilePath $scoopScriptPath -Encoding UTF8 -Force
+    
+    # Run in a new PowerShell window (non-admin) and wait for completion
+    $process = Start-Process -FilePath "powershell.exe" `
+        -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scoopScriptPath`"" `
+        -NoNewWindow -Wait -PassThru
+    
+    # Clean up
+    Remove-Item $scoopScriptPath -Force -ErrorAction SilentlyContinue
+    
+    # Refresh environment variables to pick up scoop
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    
+    # Verify installation
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        Write-Output "Scoop installed successfully!"
+    } else {
+        Write-Warning "Scoop installation may have failed. Please check manually."
+    }
 }
 
