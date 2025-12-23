@@ -613,7 +613,74 @@ $generateBtn.Add_Click({
     $content = Expand-PlaceholderText -Content $content -Map $map
     $content | Out-File -FilePath $outputBox.Text -Encoding UTF8
 
-    [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.", "Success", "OK", "Information")
+    # Create deployment package
+    $outputDir = Split-Path $outputBox.Text
+    $outputName = [System.IO.Path]::GetFileNameWithoutExtension($outputBox.Text)
+    $zipPath = Join-Path $outputDir "$outputName-package.zip"
+    $batPath = Join-Path $outputDir "install.bat"
+    
+    try {
+        # Remove old zip if exists
+        if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+        }
+        
+        # Create temporary staging directory
+        $stagingDir = Join-Path $env:TEMP "setup-package-$(Get-Date -Format 'yyyyMMddHHmmss')"
+        New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+        
+        # Copy setup.ps1 to staging
+        Copy-Item $outputBox.Text -Destination (Join-Path $stagingDir "setup.ps1")
+        
+        # Copy utils folder to staging
+        $utilsSource = Join-Path $projectRoot "utils"
+        $utilsDest = Join-Path $stagingDir "utils"
+        if (Test-Path $utilsSource) {
+            Copy-Item $utilsSource -Destination $utilsDest -Recurse -Force
+        }
+        
+        # Create zip file
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($stagingDir, $zipPath)
+        
+        # Clean up staging directory
+        Remove-Item $stagingDir -Recurse -Force
+        
+        # Create install.bat
+        $batContent = @"
+@echo off
+echo ================================================
+echo   Windows Setup Installation Package
+echo ================================================
+echo.
+echo Extracting files...
+
+REM Get the directory where this batch file is located
+set SCRIPT_DIR=%~dp0
+
+REM Extract the zip file
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%SCRIPT_DIR%$outputName-package.zip' -DestinationPath '%SCRIPT_DIR%extracted' -Force"
+
+echo.
+echo Running setup script...
+echo.
+
+REM Run the setup script as administrator
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""%SCRIPT_DIR%extracted\setup.ps1""' -Verb RunAs"
+
+echo.
+echo Installation started. Check the elevated PowerShell window.
+echo.
+pause
+"@
+        
+        $batContent | Out-File -FilePath $batPath -Encoding ASCII
+        
+        [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.`n`nFiles created:`n- $outputName.ps1`n- $outputName-package.zip`n- install.bat`n`nJust copy install.bat and $outputName-package.zip to distribute!", "Success", "OK", "Information")
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Setup file created, but package creation failed: $_`n`nYou can still use the setup.ps1 file directly.", "Partial Success", "OK", "Warning")
+    }
 })
 
 $window.ShowDialog() | Out-Null
