@@ -31,9 +31,11 @@ function ConvertTo-List {
 }
 
 # Import utility modules
-Import-Module (Join-Path $PSScriptRoot "utils\download.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\download_utils.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "utils\programs.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "utils\file.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\network.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "utils\program_utils.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "utils\execution.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1") -Force
 
