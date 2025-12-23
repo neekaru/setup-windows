@@ -611,7 +611,6 @@ $generateBtn.Add_Click({
     }
 
     $content = Expand-PlaceholderText -Content $content -Map $map
-    $content | Out-File -FilePath $outputBox.Text -Encoding UTF8
 
     # Create deployment package
     $outputDir = Split-Path $outputBox.Text
@@ -629,8 +628,8 @@ $generateBtn.Add_Click({
         $stagingDir = Join-Path $env:TEMP "setup-package-$(Get-Date -Format 'yyyyMMddHHmmss')"
         New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
         
-        # Copy setup.ps1 to staging
-        Copy-Item $outputBox.Text -Destination (Join-Path $stagingDir "setup.ps1")
+        # Save setup.ps1 to staging (not to output directory)
+        $content | Out-File -FilePath (Join-Path $stagingDir "setup.ps1") -Encoding UTF8
         
         # Copy utils folder to staging
         $utilsSource = Join-Path $projectRoot "utils"
@@ -676,10 +675,10 @@ pause
         
         $batContent | Out-File -FilePath $batPath -Encoding ASCII
         
-        [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.`n`nFiles created:`n- $outputName.ps1`n- $outputName-package.zip`n- install.bat`n`nJust copy install.bat and $outputName-package.zip to distribute!", "Success", "OK", "Information")
+        [System.Windows.MessageBox]::Show("Selesai! File setup kamu sudah siap.`n`nFiles created:`n- $outputName-package.zip`n- install.bat`n`nJust copy both files to distribute!", "Success", "OK", "Information")
     }
     catch {
-        [System.Windows.MessageBox]::Show("Setup file created, but package creation failed: $_`n`nYou can still use the setup.ps1 file directly.", "Partial Success", "OK", "Warning")
+        [System.Windows.MessageBox]::Show("Package creation failed: $_", "Error", "OK", "Error")
     }
 })
 

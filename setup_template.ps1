@@ -117,7 +117,7 @@ if ($EnableChocolateyInstall) {
 if ($EnableWingetInstall) {
     Write-Output "Checking WinGet installation..."
     if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-        Install-WingetBinary -ForceInstall $false -ConhostMode $false
+        Install-WingetBinary -ForceInstall $false -ConhostMode 'Never'
     }
     # no need
     #     Write-Output "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."

@@ -5,10 +5,10 @@ Import-Module (Join-Path $PSScriptRoot "execution.psm1") -Force
 
 function Install-WingetBinary {
     # params needs to force install winget if not present
-    params(
-        [boolean] $ForceInstall,
+    param(
+        [bool]$ForceInstall = $false,
         [ValidateSet('Never', 'Retry', 'Force')]
-        [string] $ConhostMode = 'Never'
+        [string]$ConhostMode = 'Never'
     )
     # get OS info
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
@@ -44,7 +44,7 @@ function Install-WingetBinary {
     # first allow to session to run scripts
     Set-ExecutionPolicyWrapper -ExecutionPolicy Bypass -Scope Process
     # we use offline installer
-    Invoke-DownloadFile https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1 -OutputPath "$env:TEMP\winget-install.ps1"
+    Invoke-DownloadFile -Url "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1" -OutputPath "$env:TEMP\winget-install.ps1" -FollowRedirect
 
     # run the installer script
     # build args for the downloaded winget-install.ps1 based on common global vars or this function's $ForceInstall
@@ -54,7 +54,7 @@ function Install-WingetBinary {
     }
     $wingetArgs += " -Debug"
     
-    Run-Commands -Commands @($wingetArgs) -ConhostMode $ConhostMode -WaitForExit
+    Invoke-Command -Commands @($wingetArgs) -ConhostMode $ConhostMode -WaitForExit
 }
 
 # this for install choco binary if not present
@@ -91,6 +91,7 @@ function Install-ScoopBinary {
     if (-not (Test-Path "$env:USERPROFILE\scoop")) {
         New-Item -ItemType Directory -Path "$env:USERPROFILE\scoop" -Force | Out-Null
     }
+    $scoopScript = "$env:TEMP\install-scoop.ps1"
     Invoke-WebRequest -UseBasicParsing -Uri "https://get.scoop.sh" -OutFile $scoopScript
     & $scoopScript
     Remove-Item $scoopScript -Force -ErrorAction SilentlyContinue
