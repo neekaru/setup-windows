@@ -35,7 +35,7 @@
 #>
 function Set-FirewallRule {
     [CmdletBinding(SupportsShouldProcess)]
-    Params (
+    param (
         [Parameter(Mandatory)]
         [string]$Path,
 
@@ -106,7 +106,7 @@ function Set-FirewallRule {
 #>
 function Remove-FirewallRule {
     [CmdletBinding(SupportsShouldProcess)]
-    Params (
+    param (
         [Parameter(Mandatory)]
         [string]$Path,
 

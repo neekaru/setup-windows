@@ -32,10 +32,19 @@ $urlGrid = $window.FindName("UrlGrid")
 $wingetGrid = $window.FindName("WingetGrid")
 $chocoGrid = $window.FindName("ChocoGrid")
 $scoopGrid = $window.FindName("ScoopGrid")
+$fileOpsGrid = $window.FindName("FileOpsGrid")
+$networkGrid = $window.FindName("NetworkGrid")
+$commandsGrid = $window.FindName("CommandsGrid")
 $templateBtn = $window.FindName("TemplateBrowseButton")
 $outputBtn = $window.FindName("OutputBrowseButton")
 $addRowBtn = $window.FindName("AddRowButton")
 $removeRowBtn = $window.FindName("RemoveRowButton")
+$fileOpsAddBtn = $window.FindName("FileOpsAddButton")
+$fileOpsRemoveBtn = $window.FindName("FileOpsRemoveButton")
+$networkAddBtn = $window.FindName("NetworkAddButton")
+$networkRemoveBtn = $window.FindName("NetworkRemoveButton")
+$commandsAddBtn = $window.FindName("CommandsAddButton")
+$commandsRemoveBtn = $window.FindName("CommandsRemoveButton")
 $generateBtn = $window.FindName("GenerateButton")
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -108,7 +117,8 @@ function New-UrlRow {
         [bool]$Enabled = $true,
         [string]$Name = "",
         [string]$Url = "",
-        [string]$OutputPath = "",
+        [bool]$SaveToTemp = $true,
+        [string]$Filename = "",
         [string]$InstallArgs = "",
         [bool]$RemoveInstaller = $false
     )
@@ -117,7 +127,8 @@ function New-UrlRow {
             Enabled = $Enabled
             Name = $Name
             Url = $Url
-            OutputPath = $OutputPath
+            SaveToTemp = $SaveToTemp
+            Filename = $Filename
             InstallArgs = $InstallArgs
             RemoveInstaller = $RemoveInstaller
         }
@@ -131,24 +142,33 @@ function Get-UrlInstallCommand {
     foreach ($item in $Items) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.Url)) { continue }
-        if ([string]::IsNullOrWhiteSpace($item.OutputPath)) { continue }
+        if ([string]::IsNullOrWhiteSpace($item.Filename)) { continue }
 
         $url = ConvertTo-PowerShellString $item.Url
-        $out = ConvertTo-PowerShellString $item.OutputPath
-        $argsBlock = ""
-
-        if (-not [string]::IsNullOrWhiteSpace($item.InstallArgs)) {
-            $argList = $item.InstallArgs -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-            if ($argList.Count -gt 0) {
-                $argItems = $argList | ForEach-Object { "`"$((ConvertTo-PowerShellString $_))`"" }
-                $argsBlock = " -InstallArguments @($($argItems -join ", "))"
-            }
+        
+        # Build output path
+        if ($item.SaveToTemp) {
+            $out = "`$env:TEMP\$(ConvertTo-PowerShellString $item.Filename)"
+        } else {
+            $out = ConvertTo-PowerShellString $item.Filename
         }
-
-        $removeFlag = ""
-        if ($item.RemoveInstaller) { $removeFlag = " -RemoveInstaller" }
-
-        $lines.Add("Install-SoftwareFromUrl -Url `"$url`" -OutputPath `"$out`"$argsBlock$removeFlag")
+        
+        $hasArgs = -not [string]::IsNullOrWhiteSpace($item.InstallArgs)
+        $hasRemove = $item.RemoveInstaller
+        
+        if ($hasArgs -and $hasRemove) {
+            $argList = $item.InstallArgs -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            $argItems = $argList | ForEach-Object { "`"$((ConvertTo-PowerShellString $_))`"" }
+            $lines.Add("Install-SoftwareFromUrl -Url `"$url`" -OutputPath `"$out`" -InstallArguments @($($argItems -join ", ")) -RemoveInstaller")
+        } elseif ($hasArgs) {
+            $argList = $item.InstallArgs -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            $argItems = $argList | ForEach-Object { "`"$((ConvertTo-PowerShellString $_))`"" }
+            $lines.Add("Install-SoftwareFromUrl -Url `"$url`" -OutputPath `"$out`" -InstallArguments @($($argItems -join ", "))")
+        } elseif ($hasRemove) {
+            $lines.Add("Install-SoftwareFromUrl -Url `"$url`" -OutputPath `"$out`" -RemoveInstaller")
+        } else {
+            $lines.Add("Install-SoftwareFromUrl -Url `"$url`" -OutputPath `"$out`"")
+        }
     }
 
     if ($lines.Count -eq 0) {
@@ -164,6 +184,17 @@ $wingetItems = New-Object System.Collections.ObjectModel.ObservableCollection[ob
 $chocoItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
 $scoopItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
 $urlItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$fileOpsItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$networkItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$commandsItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+
+# Set DataContext for ComboBox options
+$fileOperations = @("Copy", "Move", "Delete-Recycle", "Delete-Permanent", "Extract-ZIP")
+$networkTools = @("Firewall-Add", "Firewall-Remove", "Hosts-Add", "Hosts-Remove", "Hosts-AddPreset", "Hosts-RemovePreset")
+$window.DataContext = @{
+    FileOperations = $fileOperations
+    NetworkTools = $networkTools
+}
 
 if (Test-Path $packageListPath) {
     try {
@@ -189,6 +220,9 @@ $wingetGrid.ItemsSource = $wingetItems
 $chocoGrid.ItemsSource = $chocoItems
 $scoopGrid.ItemsSource = $scoopItems
 $urlGrid.ItemsSource = $urlItems
+$fileOpsGrid.ItemsSource = $fileOpsItems
+$networkGrid.ItemsSource = $networkItems
+$commandsGrid.ItemsSource = $commandsItems
 
 if (Test-Path $urlListPath) {
     try {
@@ -199,18 +233,19 @@ if (Test-Path $urlListPath) {
                     -Enabled ($item.Enabled -ne $false) `
                     -Name $item.Name `
                     -Url $item.Url `
-                    -OutputPath $item.OutputPath `
+                    -SaveToTemp (if ($null -ne $item.SaveToTemp) { [bool]$item.SaveToTemp } else { $true }) `
+                    -Filename $item.Filename `
                     -InstallArgs $item.InstallArgs `
                     -RemoveInstaller ([bool]$item.RemoveInstaller)
             ))
         }
     } catch {
-        $urlItems.Add((New-UrlRow -Name "PostgreSQL" -Url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -OutputPath "$env:TEMP\\postgresql-17.3-1-windows-x64.exe"))
-        $urlItems.Add((New-UrlRow -Name "IDM" -Url "https://download.internetdownloadmanager.com/idman641build2.exe" -OutputPath "$env:TEMP\\idm_installer.exe" -InstallArgs "/silent" -RemoveInstaller $true))
+        $urlItems.Add((New-UrlRow -Name "PostgreSQL" -Url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -SaveToTemp $true -Filename "postgresql-17.3-1-windows-x64.exe"))
+        $urlItems.Add((New-UrlRow -Name "IDM" -Url "https://download.internetdownloadmanager.com/idman641build2.exe" -SaveToTemp $true -Filename "idm_installer.exe" -InstallArgs "/silent" -RemoveInstaller $true))
     }
 } else {
-    $urlItems.Add((New-UrlRow -Name "PostgreSQL" -Url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -OutputPath "$env:TEMP\\postgresql-17.3-1-windows-x64.exe"))
-    $urlItems.Add((New-UrlRow -Name "IDM" -Url "https://download.internetdownloadmanager.com/idman641build2.exe" -OutputPath "$env:TEMP\\idm_installer.exe" -InstallArgs "/silent" -RemoveInstaller $true))
+    $urlItems.Add((New-UrlRow -Name "PostgreSQL" -Url "https://get.enterprisedb.com/postgresql/postgresql-17.3-1-windows-x64.exe" -SaveToTemp $true -Filename "postgresql-17.3-1-windows-x64.exe"))
+    $urlItems.Add((New-UrlRow -Name "IDM" -Url "https://download.internetdownloadmanager.com/idman641build2.exe" -SaveToTemp $true -Filename "idm_installer.exe" -InstallArgs "/silent" -RemoveInstaller $true))
 }
 
 
@@ -260,6 +295,195 @@ function Get-PackageCommand {
     return ($lines -join "`r`n")
 }
 
+function New-FileOpRow {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [bool]$Enabled = $true,
+        [string]$Operation = "Copy",
+        [string]$SourcePath = "",
+        [string]$DestPath = "",
+        [bool]$Recurse = $false,
+        [bool]$Force = $false
+    )
+    if ($PSCmdlet.ShouldProcess($Operation, "Create file operation row")) {
+        [PSCustomObject]@{
+            Enabled = $Enabled
+            Operation = $Operation
+            SourcePath = $SourcePath
+            DestPath = $DestPath
+            Recurse = $Recurse
+            Force = $Force
+        }
+    }
+}
+
+function New-NetworkRow {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [bool]$Enabled = $true,
+        [string]$Tool = "Firewall-Add",
+        [string]$Path = "",
+        [string]$Action = "",
+        [string]$Extra = ""
+    )
+    if ($PSCmdlet.ShouldProcess($Tool, "Create network tool row")) {
+        [PSCustomObject]@{
+            Enabled = $Enabled
+            Tool = $Tool
+            Path = $Path
+            Action = $Action
+            Extra = $Extra
+        }
+    }
+}
+
+function New-CommandRow {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [bool]$Enabled = $true,
+        [string]$Command = "",
+        [bool]$WaitForExit = $true,
+        [string]$Shell = "powershell"
+    )
+    if ($PSCmdlet.ShouldProcess($Command, "Create command row")) {
+        [PSCustomObject]@{
+            Enabled = $Enabled
+            Command = $Command
+            WaitForExit = $WaitForExit
+            Shell = $Shell
+        }
+    }
+}
+
+function Get-FileOpsCommand {
+    param([System.Collections.IEnumerable]$Items)
+    $lines = New-Object System.Collections.Generic.List[string]
+
+    foreach ($item in $Items) {
+        if (-not $item.Enabled) { continue }
+        if ([string]::IsNullOrWhiteSpace($item.SourcePath)) { continue }
+
+        $src = ConvertTo-PowerShellString $item.SourcePath
+        
+        switch ($item.Operation) {
+            "Copy" {
+                if ([string]::IsNullOrWhiteSpace($item.DestPath)) { continue }
+                $dest = ConvertTo-PowerShellString $item.DestPath
+                if ($item.Recurse -and $item.Force) {
+                    $lines.Add("Copy-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`" -Recurse -Force")
+                } elseif ($item.Recurse) {
+                    $lines.Add("Copy-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`" -Recurse")
+                } elseif ($item.Force) {
+                    $lines.Add("Copy-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`" -Force")
+                } else {
+                    $lines.Add("Copy-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`"")
+                }
+            }
+            "Move" {
+                if ([string]::IsNullOrWhiteSpace($item.DestPath)) { continue }
+                $dest = ConvertTo-PowerShellString $item.DestPath
+                if ($item.Force) {
+                    $lines.Add("Move-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`" -Force")
+                } else {
+                    $lines.Add("Move-FileHandler -SourcePath `"$src`" -DestinationPath `"$dest`"")
+                }
+            }
+            "Delete-Recycle" {
+                $lines.Add("Remove-FileToRecycleBin -Path `"$src`"")
+            }
+            "Delete-Permanent" {
+                $lines.Add("Remove-FileVerbose -Path `"$src`"")
+            }
+            "Extract-ZIP" {
+                if ([string]::IsNullOrWhiteSpace($item.DestPath)) { continue }
+                $dest = ConvertTo-PowerShellString $item.DestPath
+                if ($item.Force) {
+                    $lines.Add("Expand-ZipFile -ZipFilePath `"$src`" -DestinationPath `"$dest`" -Force")
+                } else {
+                    $lines.Add("Expand-ZipFile -ZipFilePath `"$src`" -DestinationPath `"$dest`"")
+                }
+            }
+        }
+    }
+
+    if ($lines.Count -eq 0) {
+        return "# (no file operations selected)"
+    }
+
+    return ($lines -join "`r`n")
+}
+
+function Get-NetworkCommand {
+    param([System.Collections.IEnumerable]$Items)
+    $lines = New-Object System.Collections.Generic.List[string]
+
+    foreach ($item in $Items) {
+        if (-not $item.Enabled) { continue }
+        if ([string]::IsNullOrWhiteSpace($item.Path)) { continue }
+
+        $path = ConvertTo-PowerShellString $item.Path
+        $action = ConvertTo-PowerShellString $item.Action
+        $extra = ConvertTo-PowerShellString $item.Extra
+        
+        switch ($item.Tool) {
+            "Firewall-Add" {
+                if ([string]::IsNullOrWhiteSpace($action)) { $action = "Block" }
+                if ([string]::IsNullOrWhiteSpace($extra)) { $extra = "All" }
+                $lines.Add("Set-FirewallRule -Path `"$path`" -Action `"$action`" -Direction `"$extra`"")
+            }
+            "Firewall-Remove" {
+                if ([string]::IsNullOrWhiteSpace($action)) { $action = "Block" }
+                if ([string]::IsNullOrWhiteSpace($extra)) { $extra = "All" }
+                $lines.Add("Remove-FirewallRule -Path `"$path`" -Action `"$action`" -Direction `"$extra`"")
+            }
+            "Hosts-Add" {
+                if ([string]::IsNullOrWhiteSpace($action)) { continue }
+                $lines.Add("Set-HostEntry -Action Add -IPAddress `"$action`" -Hostname `"$path`"")
+            }
+            "Hosts-Remove" {
+                $lines.Add("Set-HostEntry -Action Remove -Hostname `"$path`"")
+            }
+            "Hosts-AddPreset" {
+                $lines.Add("Set-HostEntry -Action Add -PresetUrl `"$path`"")
+            }
+            "Hosts-RemovePreset" {
+                $lines.Add("Set-HostEntry -Action Remove -PresetUrl `"$path`"")
+            }
+        }
+    }
+
+    if ($lines.Count -eq 0) {
+        return "# (no network operations selected)"
+    }
+
+    return ($lines -join "`r`n")
+}
+
+function Get-CommandsCommand {
+    param([System.Collections.IEnumerable]$Items)
+    $lines = New-Object System.Collections.Generic.List[string]
+
+    foreach ($item in $Items) {
+        if (-not $item.Enabled) { continue }
+        if ([string]::IsNullOrWhiteSpace($item.Command)) { continue }
+
+        $cmd = ConvertTo-PowerShellString $item.Command
+        $shell = if ([string]::IsNullOrWhiteSpace($item.Shell)) { "powershell" } else { $item.Shell.ToLower() }
+        
+        if ($item.WaitForExit) {
+            $lines.Add("Invoke-Command -Commands @(`"$cmd`") -Shell '$shell' -WaitForExit")
+        } else {
+            $lines.Add("Invoke-Command -Commands @(`"$cmd`") -Shell '$shell'")
+        }
+    }
+
+    if ($lines.Count -eq 0) {
+        return "# (no commands selected)"
+    }
+
+    return ($lines -join "`r`n")
+}
+
 $templateBtn.Add_Click({
     $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.Filter = "PowerShell Template (*.ps1)|*.ps1|All Files (*.*)|*.*"
@@ -277,7 +501,10 @@ function Get-ActiveGridInfo {
     if ($wingetGrid.IsVisible) { return @{ Grid = $wingetGrid; Items = $wingetItems; RowFactory = { New-PackageRow -Enabled $true -PackageName "" -Version "" } } }
     if ($chocoGrid.IsVisible) { return @{ Grid = $chocoGrid; Items = $chocoItems; RowFactory = { New-PackageRow -Enabled $true -PackageName "" -Version "" } } }
     if ($scoopGrid.IsVisible) { return @{ Grid = $scoopGrid; Items = $scoopItems; RowFactory = { New-PackageRow -Enabled $true -PackageName "" -Version "" } } }
-    if ($urlGrid.IsVisible) { return @{ Grid = $urlGrid; Items = $urlItems; RowFactory = { New-UrlRow -Enabled $true -Name "" -Url "" -OutputPath "" -InstallArgs "" -RemoveInstaller $false } } }
+    if ($urlGrid.IsVisible) { return @{ Grid = $urlGrid; Items = $urlItems; RowFactory = { New-UrlRow -Enabled $true -Name "" -Url "" -SaveToTemp $true -Filename "" -InstallArgs "" -RemoveInstaller $false } } }
+    if ($fileOpsGrid.IsVisible) { return @{ Grid = $fileOpsGrid; Items = $fileOpsItems; RowFactory = { New-FileOpRow -Enabled $true -Operation "Copy" -SourcePath "" -DestPath "" -Recurse $false -Force $false } } }
+    if ($networkGrid.IsVisible) { return @{ Grid = $networkGrid; Items = $networkItems; RowFactory = { New-NetworkRow -Enabled $true -Tool "Firewall-Add" -Path "" -Action "" -Extra "" } } }
+    if ($commandsGrid.IsVisible) { return @{ Grid = $commandsGrid; Items = $commandsItems; RowFactory = { New-CommandRow -Enabled $true -Command "" -WaitForExit $true -Shell "powershell" } } }
     return $null
 }
 
@@ -296,6 +523,39 @@ $removeRowBtn.Add_Click({
     }
 })
 
+$fileOpsAddBtn.Add_Click({
+    $fileOpsItems.Add((New-FileOpRow -Enabled $true -Operation "Copy" -SourcePath "" -DestPath "" -Recurse $false -Force $false))
+})
+
+$fileOpsRemoveBtn.Add_Click({
+    $selected = @($fileOpsGrid.SelectedItems)
+    foreach ($item in $selected) {
+        $fileOpsItems.Remove($item) | Out-Null
+    }
+})
+
+$networkAddBtn.Add_Click({
+    $networkItems.Add((New-NetworkRow -Enabled $true -Tool "Firewall-Add" -Path "" -Action "" -Extra ""))
+})
+
+$networkRemoveBtn.Add_Click({
+    $selected = @($networkGrid.SelectedItems)
+    foreach ($item in $selected) {
+        $networkItems.Remove($item) | Out-Null
+    }
+})
+
+$commandsAddBtn.Add_Click({
+    $commandsItems.Add((New-CommandRow -Enabled $true -Command "" -WaitForExit $true -Shell "powershell"))
+})
+
+$commandsRemoveBtn.Add_Click({
+    $selected = @($commandsGrid.SelectedItems)
+    foreach ($item in $selected) {
+        $commandsItems.Remove($item) | Out-Null
+    }
+})
+
 $generateBtn.Add_Click({
     if (-not (Test-Path $templateBox.Text)) {
         [System.Windows.MessageBox]::Show("Template file not found.", "Error", "OK", "Error")
@@ -310,6 +570,9 @@ $generateBtn.Add_Click({
     $content = Get-Content -Raw -Path $templateBox.Text
     $packageBlock = Get-PackageCommand -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems
     $urlBlock = Get-UrlInstallCommand -Items $urlItems
+    $fileOpsBlock = Get-FileOpsCommand -Items $fileOpsItems
+    $networkBlock = Get-NetworkCommand -Items $networkItems
+    $commandsBlock = Get-CommandsCommand -Items $commandsItems
 
     if ($content -notmatch "# <PACKAGE_LIST_MARKER>") {
         [System.Windows.MessageBox]::Show("Package list marker not found in template.", "Error", "OK", "Error")
@@ -322,6 +585,17 @@ $generateBtn.Add_Click({
         return
     }
     $content = $content -replace [Regex]::Escape("# <URL_INSTALL_MARKER>"), $urlBlock
+    
+    # Replace new markers if they exist
+    if ($content -match "# <FILE_OPS_MARKER>") {
+        $content = $content -replace [Regex]::Escape("# <FILE_OPS_MARKER>"), $fileOpsBlock
+    }
+    if ($content -match "# <NETWORK_MARKER>") {
+        $content = $content -replace [Regex]::Escape("# <NETWORK_MARKER>"), $networkBlock
+    }
+    if ($content -match "# <COMMANDS_MARKER>") {
+        $content = $content -replace [Regex]::Escape("# <COMMANDS_MARKER>"), $commandsBlock
+    }
 
     $map = @{
         "ENABLE_CHOCOLATEY_INSTALL" = (ConvertTo-BoolString $enableChocoInstall.IsChecked)

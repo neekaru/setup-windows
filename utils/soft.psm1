@@ -54,7 +54,7 @@ function Install-WingetBinary {
     }
     $wingetArgs += " -Debug"
     
-    Run-Commands -Commands @($wingetArgs) -ConhostMode $ConhostMode
+    Run-Commands -Commands @($wingetArgs) -ConhostMode $ConhostMode -WaitForExit
 }
 
 # this for install choco binary if not present

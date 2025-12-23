@@ -230,14 +230,14 @@ function Get-InstalledProgram {
 }
 
 # this function as wrapper for powershell, command prompt
-function Run-Commands {
+function Invoke-Command {
     param (
         [Parameter(Mandatory)]
         [string[]]$Commands,
 
         [string]$Shell = 'powershell',
 
-        [switch]$WaitForExit = $true,
+        [switch]$WaitForExit,
 
         [ValidateSet('Never', 'Retry', 'Force')]
         [string]$ConhostMode = 'Never'
@@ -319,14 +319,15 @@ function Run-Commands {
 }
 
 # Export functions
-Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram, Run-Commands
+Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram, Invoke-Command
 
 # Create aliases for backward compatibility and common alternative names
 New-Alias -Name Check-ProgramInstalled -Value Test-ProgramInstalled
 New-Alias -Name Test-ProgramExists -Value Test-ProgramInstalled
 New-Alias -Name Get-InstalledPrograms -Value Get-InstalledProgram
 New-Alias -Name List-InstalledPrograms -Value Get-InstalledProgram
-New-Alias -Name Run-Command -Value Run-Commands
+New-Alias -Name Run-Command -Value Invoke-Command
+New-Alias -Name Run-Commands -Value Invoke-Command
 
 # Export aliases
-Export-ModuleMember -Alias Check-ProgramInstalled, Test-ProgramExists, Get-InstalledPrograms, List-InstalledPrograms, Run-Command
+Export-ModuleMember -Alias Check-ProgramInstalled, Test-ProgramExists, Get-InstalledPrograms, List-InstalledPrograms, Run-Command, Run-Commands

@@ -89,7 +89,8 @@
                                     <DataGridCheckBoxColumn Header="Status" Binding="{Binding Enabled}" Width="70" />
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="140" />
                                     <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*" />
-                                    <DataGridTextColumn Header="OutputPath" Binding="{Binding OutputPath}" Width="220" />
+                                    <DataGridCheckBoxColumn Header="Save to TEMP" Binding="{Binding SaveToTemp}" Width="110" />
+                                    <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
                                     <DataGridTextColumn Header="Args (Optional)" Binding="{Binding InstallArgs}" Width="160" />
                                     <DataGridCheckBoxColumn Header="Remove" Binding="{Binding RemoveInstaller}" Width="80" />
                                 </DataGrid.Columns>
@@ -100,6 +101,227 @@
                     <DockPanel Grid.Row="1" LastChildFill="False">
                         <Button Name="AddRowButton" Content="Add Row" Width="100" Margin="0,0,10,0" />
                         <Button Name="RemoveRowButton" Content="Remove Selected" Width="130" Margin="0,0,10,0" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="File Operations">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DataGrid Name="FileOpsGrid" AutoGenerateColumns="False" CanUserAddRows="True" Grid.Row="0">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" Width="70" />
+                            <DataGridComboBoxColumn Header="Operation" Width="140" SelectedItemBinding="{Binding Operation}">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Copy</sys:String>
+                                                    <sys:String>Move</sys:String>
+                                                    <sys:String>Delete-Recycle</sys:String>
+                                                    <sys:String>Delete-Permanent</sys:String>
+                                                    <sys:String>Extract-ZIP</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Copy</sys:String>
+                                                    <sys:String>Move</sys:String>
+                                                    <sys:String>Delete-Recycle</sys:String>
+                                                    <sys:String>Delete-Permanent</sys:String>
+                                                    <sys:String>Extract-ZIP</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTextColumn Header="Source/Path" Binding="{Binding SourcePath}" Width="*" />
+                            <DataGridTextColumn Header="Destination (if needed)" Binding="{Binding DestPath}" Width="*" />
+                            <DataGridCheckBoxColumn Header="Recurse" Binding="{Binding Recurse}" Width="70" />
+                            <DataGridCheckBoxColumn Header="Force" Binding="{Binding Force}" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="1" LastChildFill="False" Margin="0,10,0,0">
+                        <Button Name="FileOpsAddButton" Content="Add Row" Width="100" Margin="0,0,10,0" />
+                        <Button Name="FileOpsRemoveButton" Content="Remove Selected" Width="130" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Network Tools">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DataGrid Name="NetworkGrid" AutoGenerateColumns="False" CanUserAddRows="True" Grid.Row="0">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" Width="70" />
+                            <DataGridComboBoxColumn Header="Tool" Width="150" SelectedItemBinding="{Binding Tool}">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Firewall-Add</sys:String>
+                                                    <sys:String>Firewall-Remove</sys:String>
+                                                    <sys:String>Hosts-Add</sys:String>
+                                                    <sys:String>Hosts-Remove</sys:String>
+                                                    <sys:String>Hosts-AddPreset</sys:String>
+                                                    <sys:String>Hosts-RemovePreset</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Firewall-Add</sys:String>
+                                                    <sys:String>Firewall-Remove</sys:String>
+                                                    <sys:String>Hosts-Add</sys:String>
+                                                    <sys:String>Hosts-Remove</sys:String>
+                                                    <sys:String>Hosts-AddPreset</sys:String>
+                                                    <sys:String>Hosts-RemovePreset</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTextColumn Header="Path/IP/Hostname" Binding="{Binding Path}" Width="*" />
+                            <DataGridComboBoxColumn Header="Action/IP" Width="120" SelectedItemBinding="{Binding Action}">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Block</sys:String>
+                                                    <sys:String>Allow</sys:String>
+                                                    <sys:String>127.0.0.1</sys:String>
+                                                    <sys:String>0.0.0.0</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="IsEditable" Value="True" />
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>Block</sys:String>
+                                                    <sys:String>Allow</sys:String>
+                                                    <sys:String>127.0.0.1</sys:String>
+                                                    <sys:String>0.0.0.0</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="IsEditable" Value="True" />
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridComboBoxColumn Header="Direction/Extra" Width="120" SelectedItemBinding="{Binding Extra}">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>All</sys:String>
+                                                    <sys:String>Inbound</sys:String>
+                                                    <sys:String>Outbound</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="IsEditable" Value="True" />
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>All</sys:String>
+                                                    <sys:String>Inbound</sys:String>
+                                                    <sys:String>Outbound</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="IsEditable" Value="True" />
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="1" LastChildFill="False" Margin="0,10,0,0">
+                        <Button Name="NetworkAddButton" Content="Add Row" Width="100" Margin="0,0,10,0" />
+                        <Button Name="NetworkRemoveButton" Content="Remove Selected" Width="130" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Commands">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DataGrid Name="CommandsGrid" AutoGenerateColumns="False" CanUserAddRows="True" Grid.Row="0">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" Width="70" />
+                            <DataGridTextColumn Header="Command" Binding="{Binding Command}" Width="*" />
+                            <DataGridCheckBoxColumn Header="WaitForExit" Binding="{Binding WaitForExit}" Width="100" />
+                            <DataGridComboBoxColumn Header="Shell" Width="120" SelectedItemBinding="{Binding Shell}">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>powershell</sys:String>
+                                                    <sys:String>cmd</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>powershell</sys:String>
+                                                    <sys:String>cmd</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="1" LastChildFill="False" Margin="0,10,0,0">
+                        <Button Name="CommandsAddButton" Content="Add Row" Width="100" Margin="0,0,10,0" />
+                        <Button Name="CommandsRemoveButton" Content="Remove Selected" Width="130" />
                     </DockPanel>
                 </Grid>
             </TabItem>

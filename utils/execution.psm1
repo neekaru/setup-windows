@@ -1,5 +1,5 @@
 function Set-ExecutionPolicyWrapper {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [ValidateSet('Bypass', 'RemoteSigned', 'AllSigned', 'Restricted', 'Unrestricted', 'Default')]
         [string]$ExecutionPolicy = 'Bypass',
@@ -7,7 +7,7 @@ function Set-ExecutionPolicyWrapper {
         [ValidateSet('Process', 'CurrentUser', 'LocalMachine', 'UserPolicy', 'MachinePolicy')]
         [string]$Scope = 'Process',
 
-        [bool]$RelaunchIfNeeded = $true
+        [switch]$RelaunchIfNeeded = $true
     )
 
     $current = Get-ExecutionPolicy -Scope $Scope
@@ -15,10 +15,12 @@ function Set-ExecutionPolicyWrapper {
         return $true
     }
 
-    try {
-        Set-ExecutionPolicy -ExecutionPolicy $ExecutionPolicy -Scope $Scope -Force -ErrorAction Stop
-    } catch {
-        Write-Verbose "Set-ExecutionPolicy failed: $_"
+    if ($PSCmdlet.ShouldProcess("Execution Policy for $Scope scope", "Set execution policy to $ExecutionPolicy")) {
+        try {
+            Set-ExecutionPolicy -ExecutionPolicy $ExecutionPolicy -Scope $Scope -Force -ErrorAction Stop
+        } catch {
+            Write-Verbose "Set-ExecutionPolicy failed: $_"
+        }
     }
 
     $current = Get-ExecutionPolicy -Scope $Scope
