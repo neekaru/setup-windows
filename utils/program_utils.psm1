@@ -229,14 +229,104 @@ function Get-InstalledProgram {
     return $filteredResults
 }
 
+# this function as wrapper for powershell, command prompt
+function Run-Commands {
+    param (
+        [Parameter(Mandatory)]
+        [string[]]$Commands,
+
+        [string]$Shell = 'powershell',
+
+        [switch]$WaitForExit = $true,
+
+        [ValidateSet('Never', 'Retry', 'Force')]
+        [string]$ConhostMode = 'Never'
+    )
+
+    $isWindowsTerminal = -not [string]::IsNullOrWhiteSpace($env:WT_SESSION)
+    $shouldRetryInConhost = $ConhostMode -eq 'Retry'
+    $forceConhost = $ConhostMode -eq 'Force'
+
+    foreach ($command in $Commands) {
+        if ($Shell -ieq 'powershell') {
+            Write-Output "Running PowerShell command: $command"
+            if ($WaitForExit) {
+                if ($forceConhost) {
+                    $argsList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command)
+                    $proc = Start-Process -FilePath 'powershell' -ArgumentList $argsList -PassThru -Wait
+                    $exitCode = $proc.ExitCode
+                    if ($exitCode -ne 0) {
+                        Write-Warning "Command failed with exit code $exitCode."
+                    }
+                } else {
+                    powershell -NoProfile -ExecutionPolicy Bypass -Command $command
+                    $exitCode = $LASTEXITCODE
+                    if ($exitCode -ne 0) {
+                        Write-Warning "Command failed with exit code $exitCode."
+                    }
+                    if ($isWindowsTerminal -and $exitCode -ne 0 -and $shouldRetryInConhost) {
+                        Write-Warning "Retrying command in conhost..."
+                        $argsList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command)
+                        $proc = Start-Process -FilePath 'powershell' -ArgumentList $argsList -PassThru -Wait
+                        $exitCode = $proc.ExitCode
+                        if ($exitCode -ne 0) {
+                            Write-Warning "Command failed in conhost with exit code $exitCode."
+                        }
+                    }
+                }
+            } else {
+                if ($forceConhost) {
+                    Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command)
+                } else {
+                    Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command) -NoNewWindow
+                }
+            }
+        } elseif ($Shell -ieq 'cmd' -or $Shell -ieq 'cmd.exe') {
+            Write-Output "Running CMD command: $command"
+            if ($WaitForExit) {
+                if ($forceConhost) {
+                    $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command) -PassThru -Wait
+                    $exitCode = $proc.ExitCode
+                    if ($exitCode -ne 0) {
+                        Write-Warning "Command failed with exit code $exitCode."
+                    }
+                } else {
+                    cmd.exe /c $command
+                    $exitCode = $LASTEXITCODE
+                    if ($exitCode -ne 0) {
+                        Write-Warning "Command failed with exit code $exitCode."
+                    }
+                    if ($isWindowsTerminal -and $exitCode -ne 0 -and $shouldRetryInConhost) {
+                        Write-Warning "Retrying command in conhost..."
+                        $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command) -PassThru -Wait
+                        $exitCode = $proc.ExitCode
+                        if ($exitCode -ne 0) {
+                            Write-Warning "Command failed in conhost with exit code $exitCode."
+                        }
+                    }
+                }
+            } else {
+                if ($forceConhost) {
+                    Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command)
+                } else {
+                    Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command) -NoNewWindow
+                }
+            }
+        } else {
+            Write-Warning "Unsupported shell type: $Shell. Skipping command: $command"
+        }
+    }
+}
+
 # Export functions
-Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram
+Export-ModuleMember -Function Test-ProgramInstalled, Get-ProgramInstallationStatus, Get-InstalledProgram, Run-Commands
 
 # Create aliases for backward compatibility and common alternative names
 New-Alias -Name Check-ProgramInstalled -Value Test-ProgramInstalled
 New-Alias -Name Test-ProgramExists -Value Test-ProgramInstalled
 New-Alias -Name Get-InstalledPrograms -Value Get-InstalledProgram
 New-Alias -Name List-InstalledPrograms -Value Get-InstalledProgram
+New-Alias -Name Run-Command -Value Run-Commands
 
 # Export aliases
-Export-ModuleMember -Alias Check-ProgramInstalled, Test-ProgramExists, Get-InstalledPrograms, List-InstalledPrograms
+Export-ModuleMember -Alias Check-ProgramInstalled, Test-ProgramExists, Get-InstalledPrograms, List-InstalledPrograms, Run-Command

@@ -1,4 +1,6 @@
 # Comprehensive software installation wrapper for Chocolatey, Winget, Scoop, and direct installation
+Import-Module "$PSScriptRoot/download.psm1" -Force
+Import-Module "$PSScriptRoot/execution.psm1" -Force
 
 function Test-PackageManager {
     param (
