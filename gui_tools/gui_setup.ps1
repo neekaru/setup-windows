@@ -253,10 +253,27 @@ function Get-PackageCommand {
     param(
         [System.Collections.IEnumerable]$WingetItems,
         [System.Collections.IEnumerable]$ChocoItems,
-        [System.Collections.IEnumerable]$ScoopItems
+        [System.Collections.IEnumerable]$ScoopItems,
+        [switch]$ScoopOnly
     )
     $lines = New-Object System.Collections.Generic.List[string]
 
+    if ($ScoopOnly) {
+        # Generate only Scoop package installations (for Phase 1 - user mode)
+        foreach ($item in $ScoopItems) {
+            if (-not $item.Enabled) { continue }
+            if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
+            $name = ConvertTo-PowerShellString $item.PackageName
+            $lines.Add("scoop install $name")
+        }
+        
+        if ($lines.Count -eq 0) {
+            return "# (no Scoop packages selected)"
+        }
+        return ($lines -join "`r`n")
+    }
+
+    # Generate WinGet and Chocolatey installations (for Phase 2 - admin mode)
     foreach ($item in $WingetItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
@@ -281,15 +298,8 @@ function Get-PackageCommand {
         }
     }
 
-    foreach ($item in $ScoopItems) {
-        if (-not $item.Enabled) { continue }
-        if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
-        $name = ConvertTo-PowerShellString $item.PackageName
-        $lines.Add("Install-WithScoop -PackageName `"$name`"")
-    }
-
     if ($lines.Count -eq 0) {
-        $lines.Add("# (no packages selected)")
+        return "# (no Chocolatey or WinGet packages selected)"
     }
 
     return ($lines -join "`r`n")
@@ -568,12 +578,22 @@ $generateBtn.Add_Click({
     }
 
     $content = Get-Content -Raw -Path $templateBox.Text
+    # Generate installation blocks
+    $scoopPackagesBlock = Get-PackageCommand -ScoopItems $scoopItems -ScoopOnly
     $packageBlock = Get-PackageCommand -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems
     $urlBlock = Get-UrlInstallCommand -Items $urlItems
     $fileOpsBlock = Get-FileOpsCommand -Items $fileOpsItems
     $networkBlock = Get-NetworkCommand -Items $networkItems
     $commandsBlock = Get-CommandsCommand -Items $commandsItems
 
+    # Replace Scoop packages marker (Phase 1 - user mode)
+    if ($content -notmatch "# <SCOOP_PACKAGES_MARKER>") {
+        [System.Windows.MessageBox]::Show("Scoop packages marker not found in template.", "Error", "OK", "Error")
+        return
+    }
+    $content = $content -replace [Regex]::Escape("# <SCOOP_PACKAGES_MARKER>"), $scoopPackagesBlock
+
+    # Replace main package list marker (Phase 2 - admin mode, Chocolatey and WinGet only)
     if ($content -notmatch "# <PACKAGE_LIST_MARKER>") {
         [System.Windows.MessageBox]::Show("Package list marker not found in template.", "Error", "OK", "Error")
         return

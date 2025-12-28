@@ -86,50 +86,87 @@ function Install-ScoopBinary {
         return
     }
 
-    # Install Scoop in user mode (non-admin)
-    Write-Output "Installing Scoop in user mode (non-admin)..."
+    # Install Scoop directly (caller must ensure running as user, not admin)
+    Write-Output "Installing Scoop..."
     
-    # Create scoop directory if it doesn't exist
-    if (-not (Test-Path "$env:USERPROFILE\scoop")) {
-        New-Item -ItemType Directory -Path "$env:USERPROFILE\scoop" -Force | Out-Null
+    # Set scoop directory
+    $env:SCOOP = "$env:USERPROFILE\scoop"
+    [System.Environment]::SetEnvironmentVariable('SCOOP', $env:SCOOP, 'User')
+    
+    # Check if Scoop directory exists (from failed installation)
+    if (Test-Path $env:SCOOP) {
+        Write-Warning "Detected previous Scoop installation at $env:SCOOP"
+        Write-Output "Removing previous installation to start fresh..."
+        try {
+            Remove-Item -Path $env:SCOOP -Recurse -Force -ErrorAction Stop
+            Write-Output "Previous installation removed successfully."
+        } catch {
+            Write-Warning "Could not remove previous installation: $_"
+            Write-Warning "Installation may fail. Please manually remove $env:SCOOP and try again."
+        }
     }
     
-    # Download and run scoop installer in a new non-admin PowerShell process
-    $scoopInstallScript = @"
-# Set scoop directory
-`$env:SCOOP = '$env:USERPROFILE\scoop'
-[System.Environment]::SetEnvironmentVariable('SCOOP', `$env:SCOOP, 'User')
+    # Download and run installer
+    try {
+        # Temporarily override Read-Host to handle Scoop prompts safely
+        function global:Read-Host {
+            param([string]$Prompt)
 
-# Run installer - Scoop must be run as non-admin
-Write-Host "Installing Scoop (as user, NOT admin)..."
-Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-"@
-    
-    $scoopScriptPath = "$env:TEMP\install-scoop-temp.ps1"
-    $scoopInstallScript | Out-File -FilePath $scoopScriptPath -Encoding UTF8 -Force
-    
-    # Run in a new PowerShell window as NON-ADMIN user
-    # Use /USER flag to ensure it doesn't run as admin even if current process is admin
-    $process = Start-Process -FilePath "powershell.exe" `
-        -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-NoExit", "-File", "`"$scoopScriptPath`"" `
-        -UseNewEnvironment `
-        -PassThru
-    
-    # Wait for the process to complete
-    $process | Wait-Process
-    
-    # Clean up
-    Remove-Item $scoopScriptPath -Force -ErrorAction SilentlyContinue
-    
-    # Refresh environment variables to pick up scoop
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    
-    # Verify installation
-    $scoop = Get-Command scoop -ErrorAction SilentlyContinue
-    if ($scoop) {
-        Write-Output "✓ Scoop installed successfully at $($scoop.Path)!"
-    } else {
-        Write-Warning "⚠ Scoop installation may have failed. See: https://github.com/ScoopInstaller/Install#for-admin"
+            # Intercept Scoop's "Are you sure? (yN)" prompt and return empty string (defaults to N)
+            if ($Prompt -like 'Are you sure? (yN)*') {
+                return ''
+            }
+
+            # For any other prompts, use the original Read-Host
+            return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
+        }
+
+        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+
+        Write-Output "Scoop installation complete!"
+    }
+    finally {
+        # Always restore the original Read-Host function
+        Remove-Item function:\Read-Host -ErrorAction SilentlyContinue
     }
 }
 
+# this for download aria2 binary also no need params location
+function Download-Aria2 {
+
+    # replace this with current location script
+    $aria2Path = Join-Path $PSScriptRoot "aria2"
+    if (Test-Path $aria2Path) {
+        Write-Output "Aria2 is already installed at $aria2Path."
+        return
+    }
+    
+    Write-Output "Downloading Aria2..."
+    # 1.39.0 is likely a placeholder or future version, 1.37.0 is the latest stable release
+    $aria2Url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+    $aria2Zip = Join-Path $env:TEMP "aria2.zip"
+    Invoke-DownloadFile -Url $aria2Url -OutputPath $aria2Zip -FollowRedirect
+    
+    Write-Output "Extracting Aria2..."
+    $extractPath = Join-Path $env:TEMP "aria2_temp"
+    
+    # Ensure target directory exists
+    if (!(Test-Path $aria2Path)) {
+        New-Item -ItemType Directory -Path $aria2Path -Force
+    }
+    
+    Expand-Archive -Path $aria2Zip -DestinationPath $extractPath -Force
+
+    
+    # Move files from the versioned subfolder to the target $aria2Path
+    $subFolder = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
+    if ($subFolder) {
+        Move-Item -Path "$($subFolder.FullName)\*" -Destination $aria2Path -Force
+    }
+    
+    Remove-Item $aria2Zip -Force
+    Remove-Item $extractPath -Recurse -Force
+
+    
+    Write-Output "Aria2 installation complete!"
+}

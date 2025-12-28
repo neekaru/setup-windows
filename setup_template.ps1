@@ -1,7 +1,57 @@
-# Requires administrator privileges
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Warning "Please run this script as Administrator!"
-    break
+# Check administrator privileges
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+
+# Get config values early
+$EnableScoopInstall = ${ENABLE_SCOOP_INSTALL}
+
+# ============================================================================
+# PHASE 1: User-mode operations (Scoop installation + Scoop packages)
+# ============================================================================
+if (-not $isAdmin -and $EnableScoopInstall) {
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host "PHASE 1: USER MODE - Scoop Operations" -ForegroundColor Cyan
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Import only necessary modules for Scoop
+    Import-Module (Join-Path $PSScriptRoot "utils\download_utils.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "utils\execution.psm1") -Force
+    Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1") -Force
+    
+    # Install Scoop binary if not already installed
+    if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
+        Write-Output "Installing Scoop package manager..."
+        Install-ScoopBinary
+        
+        # Refresh environment to get Scoop path
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    } else {
+        Write-Output "Scoop is already installed."
+    }
+    
+    # Install all Scoop packages now (before elevating)
+    Write-Host "`nInstalling Scoop packages..." -ForegroundColor Cyan
+    
+    # <SCOOP_PACKAGES_MARKER> - Scoop packages will be inserted here by GUI
+    
+    Write-Host "`nAll Scoop operations complete!" -ForegroundColor Green
+    Write-Host "Now elevating to ADMINISTRATOR for remaining installations..." -ForegroundColor Yellow
+    Write-Host "Press any key to continue..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    
+    # Re-launch this script as administrator
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    exit
+}
+
+# ============================================================================
+# PHASE 2: Administrator-mode operations (Chocolatey, WinGet, system tasks)
+# ============================================================================
+if ($isAdmin) {
+    Write-Host "============================================" -ForegroundColor Yellow
+    Write-Host "PHASE 2: ADMINISTRATOR MODE - System Setup" -ForegroundColor Yellow
+    Write-Host "============================================" -ForegroundColor Yellow
+    Write-Host ""
 }
 
 # ------------------------------------------------------------------------------
@@ -42,10 +92,21 @@ Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1") -Force
 # Package manager wrappers (allow optional -Version)
 function Install-WithWinget {
     param([string]$PackageName, [string]$Version)
-    if ($Version) {
-        winget install --id $PackageName -v $Version --silent
-    } else {
-        winget install --id $PackageName --silent
+    
+    try {
+        if ($Version) {
+            winget install --id $PackageName -v $Version --silent --accept-package-agreements --accept-source-agreements
+        } else {
+            winget install --id $PackageName --silent --accept-package-agreements --accept-source-agreements
+        }
+    } catch {
+        # If hash mismatch occurs, retry with --force flag
+        Write-Warning "Installation failed for $PackageName. Retrying with --force flag to bypass hash check..."
+        if ($Version) {
+            winget install --id $PackageName -v $Version --silent --accept-package-agreements --accept-source-agreements --force
+        } else {
+            winget install --id $PackageName --silent --accept-package-agreements --accept-source-agreements --force
+        }
     }
 }
 
@@ -107,6 +168,10 @@ function Clear-SystemCache {
     Write-Output "System cleanup completed!"
 }
 
+# ============================================================================
+# Package Manager Installations (Admin-only)
+# ============================================================================
+
 # Install Chocolatey
 if ($EnableChocolateyInstall) {
     Write-Output "Installing Chocolatey..."
@@ -119,36 +184,12 @@ if ($EnableWingetInstall) {
     if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
         Install-WingetBinary -ForceInstall $false -ConhostMode 'Never' -IgnoreHashMismatch $true
     }
-    # no need
-    #     Write-Output "WinGet not found. Downloading Microsoft.VCLibs.140.00 and Microsoft.UI.Xaml.2.7 UWP packages..."
-    #     $packages = @(
-    #         "Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe.Appx",
-    #         "Microsoft.VCLibs.140.00_14.0.33519.0_x86__8wekyb3d8bbwe.Appx",
-    #         "Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x86__8wekyb3d8bbwe.Appx",
-    #         "Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x64__8wekyb3d8bbwe.Appx",
-    #         "Microsoft.UI.Xaml.2.8_8.2310.30001.0_x86__8wekyb3d8bbwe.Appx",
-    #         "Microsoft.UI.Xaml.2.8_8.2310.30001.0_x64__8wekyb3d8bbwe.Appx"
-    #     )
-    #     $base_url = "https://github.com/MatiDEV-PL/Open-ToolBox/raw/main/Appx/"
-    #     foreach ($package in $packages) {
-    #         $output_path = "$env:TEMP\$package"
-    #         Invoke-DownloadFile -Url ($base_url + $package) -OutputPath $output_path
-    #         Add-AppxPackage -Path $output_path
-    #     }
-
-    #     Write-Output "Installing WinGet..."
-    #     Get-GithubReleaseAsset -repository "microsoft/winget-cli" -assetName "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -outputPath "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
-    #     Add-AppxPackage -Path "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
-    # }
 }
 
-# Install Scoop if not present
-if ($EnableScoopInstall) {
-    Write-Output "Checking Scoop installation..."
-    Install-ScoopBinary
-}
+# ============================================================================
+# Package Installations (Chocolatey and WinGet only - Scoop done in Phase 1)
+# ============================================================================
 
-# Package list generated by GUI
 # <PACKAGE_LIST_MARKER>
 
 # URL installs generated by GUI
