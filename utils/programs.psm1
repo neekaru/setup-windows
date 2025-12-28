@@ -208,6 +208,7 @@ function Install-SoftwareFromUrl {
         
         if (-not $downloadSuccess) {
             Write-Error "Failed to download installer"
+            if (Test-Path $OutputPath) { Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue }
             return $false
         }
 
@@ -246,6 +247,12 @@ function Install-SoftwareFromUrl {
             return $true
         } else {
             Write-Error "Installer failed with exit code: $exitCode"
+            
+            if ($RemoveInstaller) {
+                Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
+                Write-Verbose "Installer removed after failure: $OutputPath"
+            }
+            
             return $false
         }
     } catch {

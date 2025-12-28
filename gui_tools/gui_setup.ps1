@@ -136,13 +136,26 @@ function New-UrlRow {
 }
 
 function Get-UrlInstallCommand {
-    param([System.Collections.IEnumerable]$Items)
+    param(
+        [System.Collections.IEnumerable]$Items,
+        [string[]]$Blacklist = @()
+    )
     $lines = New-Object System.Collections.Generic.List[string]
 
     foreach ($item in $Items) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.Url)) { continue }
         if ([string]::IsNullOrWhiteSpace($item.Filename)) { continue }
+
+        # Check blacklist
+        $skip = $false
+        foreach ($bl in $Blacklist) {
+            if ($item.Name -match $bl -or $item.Url -match $bl -or $item.Filename -match $bl) {
+                $skip = $true
+                break
+            }
+        }
+        if ($skip) { continue }
 
         $url = ConvertTo-PowerShellString $item.Url
         
@@ -254,22 +267,51 @@ function Get-PackageCommand {
         [System.Collections.IEnumerable]$WingetItems,
         [System.Collections.IEnumerable]$ChocoItems,
         [System.Collections.IEnumerable]$ScoopItems,
-        [switch]$ScoopOnly
+        [switch]$ScoopOnly,
+        [string[]]$Blacklist = @()
     )
     $lines = New-Object System.Collections.Generic.List[string]
 
     if ($ScoopOnly) {
-        # Generate only Scoop package installations (for Phase 1 - user mode)
         foreach ($item in $ScoopItems) {
             if (-not $item.Enabled) { continue }
             if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
-            $name = ConvertTo-PowerShellString $item.PackageName
-            $lines.Add("scoop install $name")
+
+            # RAW
+            $nameRaw = [string]$item.PackageName
+
+            # Trim + buang bullet "- " / "* "
+            $nameRaw = ($nameRaw -replace '^\s*[\-\*]\s*', '').Trim()
+
+            # Skip token/token aneh
+            if ([string]::IsNullOrWhiteSpace($nameRaw)) { continue }
+            if ($nameRaw -eq '-' -or $nameRaw -eq '--') { continue }
+
+            # Jangan pernah install "scoop" sebagai package (itu core)
+            if ($nameRaw.Trim().ToLowerInvariant() -eq 'scoop') { continue }
+
+            # Apply blacklist juga untuk scoop (biar konsisten)
+            $skip = $false
+            foreach ($bl in $Blacklist) {
+                if ($nameRaw -match $bl) { $skip = $true; break }
+            }
+            if ($skip) { continue }
+
+            # Version (opsional) -> "app@version"
+            $spec = ConvertTo-PowerShellString $nameRaw
+            if (-not [string]::IsNullOrWhiteSpace($item.Version)) {
+                $verRaw = [string]$item.Version
+                $verRaw = $verRaw.Trim()
+                if ($verRaw) {
+                    $ver = ConvertTo-PowerShellString $verRaw
+                    $spec = "$spec@$ver"
+                }
+            }
+
+            $lines.Add("scoop install $spec")
         }
-        
-        if ($lines.Count -eq 0) {
-            return "# (no Scoop packages selected)"
-        }
+
+        if ($lines.Count -eq 0) { return "# (no Scoop packages selected)" }
         return ($lines -join "`r`n")
     }
 
@@ -277,6 +319,14 @@ function Get-PackageCommand {
     foreach ($item in $WingetItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
+        
+        # Check blacklist
+        $skip = $false
+        foreach ($bl in $Blacklist) {
+            if ($item.PackageName -match $bl) { $skip = $true; break }
+        }
+        if ($skip) { continue }
+
         $name = ConvertTo-PowerShellString $item.PackageName
         if ([string]::IsNullOrWhiteSpace($item.Version)) {
             $lines.Add("Install-WithWinget -PackageName `"$name`"")
@@ -289,6 +339,14 @@ function Get-PackageCommand {
     foreach ($item in $ChocoItems) {
         if (-not $item.Enabled) { continue }
         if ([string]::IsNullOrWhiteSpace($item.PackageName)) { continue }
+
+        # Check blacklist
+        $skip = $false
+        foreach ($bl in $Blacklist) {
+            if ($item.PackageName -match $bl) { $skip = $true; break }
+        }
+        if ($skip) { continue }
+
         $name = ConvertTo-PowerShellString $item.PackageName
         if ([string]::IsNullOrWhiteSpace($item.Version)) {
             $lines.Add("Install-WithChocolatey -PackageName `"$name`"")
@@ -578,10 +636,18 @@ $generateBtn.Add_Click({
     }
 
     $content = Get-Content -Raw -Path $templateBox.Text
+    
+    # Define blacklist if Scoop is enabled
+    $blacklist = if ($enableScoopInstall.IsChecked) {
+        @("^(?i)scoop$", "^\-$", "^\-\-$", "7zip", "7-zip", "7zip\.7zip")
+    } else {
+        @()
+    }
+
     # Generate installation blocks
     $scoopPackagesBlock = Get-PackageCommand -ScoopItems $scoopItems -ScoopOnly
-    $packageBlock = Get-PackageCommand -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems
-    $urlBlock = Get-UrlInstallCommand -Items $urlItems
+    $packageBlock = Get-PackageCommand -WingetItems $wingetItems -ChocoItems $chocoItems -ScoopItems $scoopItems -Blacklist $blacklist
+    $urlBlock = Get-UrlInstallCommand -Items $urlItems -Blacklist $blacklist
     $fileOpsBlock = Get-FileOpsCommand -Items $fileOpsItems
     $networkBlock = Get-NetworkCommand -Items $networkItems
     $commandsBlock = Get-CommandsCommand -Items $commandsItems
@@ -695,6 +761,9 @@ $generateBtn.Add_Click({
         # Create install.bat
         $batContent = @"
 @echo off
+REM Disable QuickEdit Mode to prevent accidental pauses
+reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 0 /f >nul
+
 echo ================================================
 echo   Windows Setup Installation Package
 echo ================================================
@@ -706,6 +775,7 @@ set SCRIPT_DIR=%~dp0
 
 REM Extract the zip file
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%SCRIPT_DIR%$outputName-package.zip' -DestinationPath '%SCRIPT_DIR%extracted' -Force"
+if %errorlevel% neq 0 goto ERROR
 
 echo.
 echo Running setup script...
@@ -713,9 +783,20 @@ echo.
 
 REM Run the setup script as administrator
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""%SCRIPT_DIR%extracted\setup.ps1""' -Verb RunAs"
+if %errorlevel% neq 0 goto ERROR
 
 echo.
 echo Installation started. Check the elevated PowerShell window.
+goto END
+
+:ERROR
+REM Re-enable QuickEdit Mode on error
+reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >nul
+echo.
+echo [ERROR] An error occurred during the installation process.
+pause
+
+:END
 echo.
 pause
 "@

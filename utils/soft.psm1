@@ -77,59 +77,114 @@ function Install-ChocolateyBinary {
     Remove-Item $chocoScript -Force -ErrorAction SilentlyContinue
 }
 
-# this for install scoop binary if not present
-function Install-ScoopBinary {
-    # check if scoop is already installed
-    $scoopPath = Get-Command scoop -ErrorAction SilentlyContinue
-    if ($scoopPath) {
-        Write-Output "Scoop is already installed at $($scoopPath.Path)."
+Set-StrictMode -Version Latest
+
+function Get-ScoopRoot {
+    if ($env:SCOOP -and $env:SCOOP.Trim()) { return $env:SCOOP }
+    return (Join-Path $HOME 'scoop')
+}
+
+function Test-ScoopCoreOk {
+    param([string]$ScoopRoot)
+
+    $shimOk = Test-Path (Join-Path $ScoopRoot 'shims\scoop.ps1')
+    $coreOk = Test-Path (Join-Path $ScoopRoot 'apps\scoop\current\bin\scoop.ps1')
+    return ($shimOk -and $coreOk)
+}
+
+function Ensure-ScoopReady {
+    param([string]$ScoopRoot)
+
+    if (-not $ScoopRoot) { $ScoopRoot = Get-ScoopRoot }
+
+    $env:SCOOP = $ScoopRoot
+    [Environment]::SetEnvironmentVariable('SCOOP', $ScoopRoot, 'User')
+
+    $shimDir = Join-Path $ScoopRoot 'shims'
+    if ($env:Path -notlike "*$shimDir*") { $env:Path = "$shimDir;$env:Path" }
+
+    # Kalau scoop core OK, JANGAN reinstall (biar gak bentrok buckets\main already exists)
+    if (Test-ScoopCoreOk -ScoopRoot $ScoopRoot) { return }
+
+    Write-Host "Scoop core missing/partial -> reinstall core saja (apps\\scoop + shim scoop)" -ForegroundColor Yellow
+
+    # Hapus core scoop saja (app lain tetap aman)
+    Remove-Item (Join-Path $ScoopRoot 'apps\scoop') -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $ScoopRoot 'shims\scoop*') -Force -ErrorAction SilentlyContinue
+
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+
+    Invoke-RestMethod -Uri 'https://get.scoop.sh' | Invoke-Expression
+
+    # refresh PATH
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" +
+                [Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($env:Path -notlike "*$shimDir*") { $env:Path = "$shimDir;$env:Path" }
+
+    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+        throw "Scoop tidak ditemukan setelah reinstall core. Cek $ScoopRoot dan PATH."
+    }
+}
+
+function Parse-ScoopPackagesText {
+    param([string]$Text)
+
+    $tokens = New-Object System.Collections.Generic.List[string]
+    foreach ($line in ($Text -split "`r?`n")) {
+        $l = ($line -replace '#.*$', '').Trim()
+        if (-not $l) { continue }
+
+        # Kalau ada yang nyelip "scoop install ..." -> ambil argumennya saja
+        if ($l -match '^\s*scoop\s+install\s+(.*)$') {
+            $l = $Matches[1].Trim()
+        }
+
+        # Bullet "- git" / "* git"
+        if ($l -match '^[\-\*]\s*(.+)$') {
+            $l = $Matches[1].Trim()
+        }
+
+        # Split token
+        foreach ($t in ($l -split '\s+')) {
+            if ($t) { $tokens.Add($t) }
+        }
+    }
+    return $tokens
+}
+
+function Install-ScoopPackagesSafe {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$Packages,
+        [string]$ScoopRoot
+    )
+
+    Ensure-ScoopReady -ScoopRoot $ScoopRoot
+
+    # sanitize: buang '-', buang 'scoop', buang empty, dedupe
+    $clean = $Packages |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -and $_ -ne '-' -and $_ -ne '--' } |
+        Where-Object { $_.ToLowerInvariant() -ne 'scoop' } |
+        Select-Object -Unique
+
+    if (-not $clean -or $clean.Count -eq 0) {
+        Write-Host "No Scoop packages to install (after sanitize)." -ForegroundColor DarkYellow
         return
     }
 
-    # Install Scoop directly (caller must ensure running as user, not admin)
-    Write-Output "Installing Scoop..."
-    
-    # Set scoop directory
-    $env:SCOOP = "$env:USERPROFILE\scoop"
-    [System.Environment]::SetEnvironmentVariable('SCOOP', $env:SCOOP, 'User')
-    
-    # Check if Scoop directory exists (from failed installation)
-    if (Test-Path $env:SCOOP) {
-        Write-Warning "Detected previous Scoop installation at $env:SCOOP"
-        Write-Output "Removing previous installation to start fresh..."
-        try {
-            Remove-Item -Path $env:SCOOP -Recurse -Force -ErrorAction Stop
-            Write-Output "Previous installation removed successfully."
-        } catch {
-            Write-Warning "Could not remove previous installation: $_"
-            Write-Warning "Installation may fail. Please manually remove $env:SCOOP and try again."
-        }
-    }
-    
-    # Download and run installer
-    try {
-        # Temporarily override Read-Host to handle Scoop prompts safely
-        function global:Read-Host {
-            param([string]$Prompt)
-
-            # Intercept Scoop's "Are you sure? (yN)" prompt and return empty string (defaults to N)
-            if ($Prompt -like 'Are you sure? (yN)*') {
-                return ''
-            }
-
-            # For any other prompts, use the original Read-Host
-            return Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt
-        }
-
-        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-
-        Write-Output "Scoop installation complete!"
-    }
-    finally {
-        # Always restore the original Read-Host function
-        Remove-Item function:\Read-Host -ErrorAction SilentlyContinue
+    # install satu-satu biar gak ada token aneh kebaca
+    foreach ($p in $clean) {
+        Write-Host "Installing via Scoop: $p" -ForegroundColor Cyan
+        & scoop install $p
     }
 }
+
+# Backward compatibility kalau kamu masih manggil ini
+function Install-ScoopBinary {
+    Ensure-ScoopReady
+}
+
 
 # this for download aria2 binary also no need params location
 function Download-Aria2 {

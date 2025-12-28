@@ -60,6 +60,7 @@ function Invoke-Aria2Download {
         "--user-agent=`"$UserAgent`"",
         "--continue=true",
         "--allow-overwrite=true",
+        "--max-redirection=50",
         "`"$Url`""
     )
 
@@ -101,7 +102,7 @@ function Invoke-DownloadFile {
 
         [hashtable]$Headers,
         [hashtable]$Cookies,
-        [switch]$FollowRedirect,
+        [switch]$FollowRedirect = $true,
         [int]$TimeoutSeconds = 30,
         [switch]$UseBasicParsing,
         [string]$UserAgent = "Wget/1.21.3",
@@ -179,8 +180,8 @@ function Invoke-DownloadFile {
                 $params['WebSession'] = $sessionCookie
             }
 
-            if ($FollowRedirect) {
-                $params['MaximumRedirection'] = 20
+            if ($FollowRedirect) { 
+                $params['MaximumRedirection'] = 50
             } else {
                 $params['MaximumRedirection'] = 0
             }
@@ -190,6 +191,10 @@ function Invoke-DownloadFile {
 
         if (Test-Path $OutputPath) {
             $fileSize = (Get-Item $OutputPath).Length
+            if ($fileSize -lt 100) { # Likely an error page or empty file
+                Write-Error "Download failed: File is too small ($fileSize bytes). It might be an error page."
+                return $false
+            }
             Write-Verbose "Download completed successfully!"
             Write-Verbose "File size: $fileSize bytes"
             return $true

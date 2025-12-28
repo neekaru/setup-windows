@@ -4,42 +4,106 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 # Get config values early
 $EnableScoopInstall = ${ENABLE_SCOOP_INSTALL}
 
-# ============================================================================
-# PHASE 1: User-mode operations (Scoop installation + Scoop packages)
-# ============================================================================
+# ============================================
+# PHASE 1 (USER MODE): Scoop install + packages
+# - Fixes "Purging previous failed installation..." prompt by doing our own preflight purge
+# - Makes child-process install stable by pinning $env:SCOOP + shim path
+# ============================================
+
 if (-not $isAdmin -and $EnableScoopInstall) {
     Write-Host "============================================" -ForegroundColor Cyan
     Write-Host "PHASE 1: USER MODE - Scoop Operations" -ForegroundColor Cyan
     Write-Host "============================================" -ForegroundColor Cyan
     Write-Host ""
-    
+
     # Import only necessary modules for Scoop
-    Import-Module (Join-Path $PSScriptRoot "utils\download_utils.psm1") -Force
-    Import-Module (Join-Path $PSScriptRoot "utils\execution.psm1") -Force
-    Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1") -Force
-    
-    # Install Scoop binary if not already installed
-    if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Output "Installing Scoop package manager..."
-        Install-ScoopBinary
-        
-        # Refresh environment to get Scoop path
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    } else {
-        Write-Output "Scoop is already installed."
-    }
-    
-    # Install all Scoop packages now (before elevating)
+    Import-Module (Join-Path $PSScriptRoot "utils\download_utils.psm1") -Force -DisableNameChecking
+    Import-Module (Join-Path $PSScriptRoot "utils\execution.psm1")      -Force -DisableNameChecking
+    Import-Module (Join-Path $PSScriptRoot "utils\soft.psm1")           -Force -DisableNameChecking
+
+    # Pastikan scoop sehat (kalau core-nya ngaco, repair dulu)
+    Ensure-ScoopReady
+
     Write-Host "`nInstalling Scoop packages..." -ForegroundColor Cyan
-    
-    # <SCOOP_PACKAGES_MARKER> - Scoop packages will be inserted here by GUI
-    
+
+    $scoopTmp = Join-Path $env:TEMP "scoop_install.ps1"
+
+    $softModulePath = (Join-Path $PSScriptRoot "utils\soft.psm1")
+    # escape single quote biar aman kalau path ada apostrophe
+    $softModulePathEsc = $softModulePath.Replace("'", "''")
+
+    $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $HOME "scoop" }
+    $scoopRootEsc = $scoopRoot.Replace("'", "''")
+
+    $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $basePath    = ($userPath + ";" + $machinePath).Replace("'", "''")
+
+$scoopScriptContent = @"
+`$ErrorActionPreference = 'Stop'
+
+try {
+    # Disable QuickEdit Mode in child process
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 0 /f >$null 2>$null
+
+    # Pin env
+    `$env:SCOOP = '$scoopRootEsc'
+    `$env:Path  = '$basePath'
+
+    Import-Module '$softModulePathEsc' -Force -DisableNameChecking
+
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host "SCOOP PHASE (CHILD) - DEBUG INFO" -ForegroundColor Cyan
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host ("SCOOP = " + `$env:SCOOP)
+    Write-Host ("PATH  = " + `$env:Path)
+    Write-Host ("PS    = " + `$PSVersionTable.PSVersion)
+    Write-Host "============================================`n" -ForegroundColor Cyan
+
+    Ensure-ScoopReady -ScoopRoot '$scoopRootEsc'
+
+    # <SCOOP_PACKAGES_MARKER>
+
+    Write-Host "`nScoop installation window is finished." -ForegroundColor Green
+}
+catch {
+    # Re-enable QuickEdit Mode on error
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >$null 2>$null
+    Write-Host ""
+    Write-Host "!!! ERROR in Scoop phase !!!" -ForegroundColor Red
+    Write-Host (`$_ | Out-String) -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Press any key to continue..." -ForegroundColor Yellow
+    `$null = `$Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
+finally {
+    # Re-enable QuickEdit Mode when done
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >$null 2>$null
+    Write-Host ""
+    Write-Host "Press any key to close this window..." -ForegroundColor Yellow
+    `$null = `$Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+"@
+
+    $scoopScriptContent | Out-File -FilePath $scoopTmp -Encoding UTF8 -Force
+
+    # Spawn CMD -> PowerShell (biar environment kebaca fresh)
+    Start-Process cmd.exe -ArgumentList "/k", "powershell -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$scoopTmp`"" -Wait
+
+    Remove-Item $scoopTmp -Force -ErrorAction SilentlyContinue
+
+    # trigger to add 7zip context menu (kalau ada)
+    $sevenZipReg = Join-Path $HOME "scoop\apps\7zip\current\install-context.reg"
+    if (Test-Path $sevenZipReg) {
+        reg import $sevenZipReg
+    }
+
     Write-Host "`nAll Scoop operations complete!" -ForegroundColor Green
     Write-Host "Now elevating to ADMINISTRATOR for remaining installations..." -ForegroundColor Yellow
     Write-Host "Press any key to continue..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
-    # Re-launch this script as administrator
+
     Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     exit
 }
