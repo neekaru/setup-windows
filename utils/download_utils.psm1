@@ -9,6 +9,88 @@ function Get-WindowsVersion {
     }
 }
 
+function Get-Aria2Path {
+    # Check for aria2c.exe in bin folder relative to this module
+    $binPath = Join-Path (Split-Path $PSScriptRoot -Parent) "bin"
+    $aria2Exe = Join-Path $binPath "aria2c.exe"
+    
+    if (Test-Path $aria2Exe) {
+        return $aria2Exe
+    }
+    
+    # Also check in utils folder for backward compatibility
+    $utilsAria2 = Join-Path $PSScriptRoot "aria2\aria2c.exe"
+    if (Test-Path $utilsAria2) {
+        return $utilsAria2
+    }
+    
+    return $null
+}
+
+function Test-IsGitHubUrl {
+    param([string]$Url)
+    return $Url -match "^https?://(www\.)?github\.com"
+}
+
+function Invoke-Aria2Download {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Url,
+
+        [Parameter(Mandatory)]
+        [string]$OutputPath,
+
+        [string]$Aria2Path,
+        [hashtable]$Headers,
+        [string]$UserAgent = "Wget/1.21.3",
+        [int]$MaxConnections = 16,
+        [int]$SplitCount = 16
+    )
+
+    $outputDir = Split-Path $OutputPath -Parent
+    $outputFile = Split-Path $OutputPath -Leaf
+
+    # Build aria2c arguments
+    $args = @(
+        "--dir=`"$outputDir`"",
+        "--out=`"$outputFile`"",
+        "--max-connection-per-server=$MaxConnections",
+        "--split=$SplitCount",
+        "--min-split-size=1M",
+        "--user-agent=`"$UserAgent`"",
+        "--continue=true",
+        "--allow-overwrite=true",
+        "`"$Url`""
+    )
+
+    # Add custom headers if provided
+    if ($Headers) {
+        foreach ($header in $Headers.GetEnumerator()) {
+            $args += "--header=`"$($header.Key): $($header.Value)`""
+        }
+    }
+
+    Write-Verbose "Using aria2c for download: $Url"
+    Write-Verbose "Output: $OutputPath"
+
+    try {
+        $process = Start-Process -FilePath $Aria2Path -ArgumentList $args -Wait -PassThru -NoNewWindow
+        
+        if ($process.ExitCode -eq 0 -and (Test-Path $OutputPath)) {
+            $fileSize = (Get-Item $OutputPath).Length
+            Write-Verbose "aria2c download completed successfully!"
+            Write-Verbose "File size: $fileSize bytes"
+            return $true
+        } else {
+            Write-Warning "aria2c download failed with exit code: $($process.ExitCode)"
+            return $false
+        }
+    } catch {
+        Write-Warning "aria2c error: $_"
+        return $false
+    }
+}
+
 function Invoke-DownloadFile {
     param (
         [Parameter(Mandatory)]
@@ -22,7 +104,8 @@ function Invoke-DownloadFile {
         [switch]$FollowRedirect,
         [int]$TimeoutSeconds = 30,
         [switch]$UseBasicParsing,
-        [string]$UserAgent = "Wget/1.21.3"
+        [string]$UserAgent = "Wget/1.21.3",
+        [switch]$ForcePowerShell
     )
 
     try {
@@ -32,6 +115,21 @@ function Invoke-DownloadFile {
         Write-Verbose "Downloading from: $Url"
         Write-Verbose "Output path: $OutputPath"
         Write-Verbose "Windows version: $($winVersion.Major).$($winVersion.Minor)"
+
+        # Try aria2c for non-GitHub URLs (GitHub works fine with PowerShell)
+        $aria2Path = Get-Aria2Path
+        $isGitHub = Test-IsGitHubUrl -Url $Url
+        
+        if ($aria2Path -and -not $isGitHub -and -not $ForcePowerShell -and -not $Cookies) {
+            Write-Verbose "aria2c available, using it for faster download"
+            $aria2Result = Invoke-Aria2Download -Url $Url -OutputPath $OutputPath -Aria2Path $aria2Path -Headers $Headers -UserAgent $UserAgent
+            
+            if ($aria2Result) {
+                return $true
+            }
+            
+            Write-Warning "aria2c failed, falling back to PowerShell method"
+        }
 
         if ($isOldWindows) {
             # For Windows 7 and older - use WebClient
@@ -250,7 +348,7 @@ function Get-HttpHeader {
     }
 }
 
-Export-ModuleMember -Function Invoke-DownloadFile, Invoke-DownloadWithRetry, Get-DownloadSpeed, Save-CookiesFromResponse, Get-HttpHeader
+Export-ModuleMember -Function Invoke-DownloadFile, Invoke-DownloadWithRetry, Get-DownloadSpeed, Save-CookiesFromResponse, Get-HttpHeader, Invoke-Aria2Download, Get-Aria2Path, Test-IsGitHubUrl
 
 
 # Create aliases for backward compatibility and common alternative names

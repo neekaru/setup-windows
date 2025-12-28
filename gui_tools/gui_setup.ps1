@@ -658,6 +658,33 @@ $generateBtn.Add_Click({
             Copy-Item $utilsSource -Destination $utilsDest -Recurse -Force
         }
         
+        # Create bin folder and download aria2c.exe for faster downloads
+        $binDir = Join-Path $stagingDir "bin"
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+        
+        $aria2Url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+        $aria2Zip = Join-Path $env:TEMP "aria2_temp.zip"
+        $aria2ExtractDir = Join-Path $env:TEMP "aria2_extract"
+        
+        try {
+            Write-Host "Downloading aria2c.exe for package..." -ForegroundColor Cyan
+            Invoke-WebRequest -Uri $aria2Url -OutFile $aria2Zip -UseBasicParsing
+            
+            # Extract and copy only aria2c.exe to bin folder
+            Expand-Archive -Path $aria2Zip -DestinationPath $aria2ExtractDir -Force
+            $aria2Exe = Get-ChildItem -Path $aria2ExtractDir -Recurse -Filter "aria2c.exe" | Select-Object -First 1
+            if ($aria2Exe) {
+                Copy-Item $aria2Exe.FullName -Destination (Join-Path $binDir "aria2c.exe") -Force
+                Write-Host "aria2c.exe added to bin folder" -ForegroundColor Green
+            }
+            
+            # Cleanup temp files
+            Remove-Item $aria2Zip -Force -ErrorAction SilentlyContinue
+            Remove-Item $aria2ExtractDir -Recurse -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Warning "Failed to download aria2c: $_. Package will use PowerShell downloader instead."
+        }
+        
         # Create zip file
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::CreateFromDirectory($stagingDir, $zipPath)

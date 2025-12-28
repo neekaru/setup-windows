@@ -45,7 +45,32 @@ Import-Module ./utils/network.psm1 -Force
 # ============================================
 # Aria2 Download Test
 # ============================================
-Write-Host "`nTesting Download-Aria2..." -ForegroundColor Cyan
-Import-Module ./utils/soft.psm1 -Force
-Download-Aria2
+Write-Host "`nTesting aria2c download integration..." -ForegroundColor Cyan
+Import-Module ./utils/download_utils.psm1 -Force
 
+# Check if aria2c is available
+$aria2Path = Get-Aria2Path
+if ($aria2Path) {
+    Write-Host "aria2c found at: $aria2Path" -ForegroundColor Green
+} else {
+    Write-Host "aria2c not found. Please create bin folder with aria2c.exe or run gui_setup.ps1 to generate package." -ForegroundColor Yellow
+}
+
+# Test download with aria2c (non-GitHub URL)
+Write-Host "`nTesting download from non-GitHub URL (should use aria2c if available)..." -ForegroundColor Cyan
+$testUrl = "https://download.microsoft.com/download/1/7/1/1718ccc4-6315-4d8e-9543-8e28a4e18c4c/dxwebsetup.exe"
+$testOutput = Join-Path $env:TEMP "test_dxwebsetup.exe"
+Invoke-DownloadFile -Url $testUrl -OutputPath $testOutput -Verbose
+
+if (Test-Path $testOutput) {
+    $fileInfo = Get-Item $testOutput
+    Write-Host "Download successful! File size: $($fileInfo.Length) bytes" -ForegroundColor Green
+    Remove-Item $testOutput -Force
+} else {
+    Write-Host "Download failed!" -ForegroundColor Red
+}
+
+# Test GitHub URL (should use PowerShell method)
+Write-Host "`nTesting download from GitHub URL (should use PowerShell method)..." -ForegroundColor Cyan
+$githubUrl = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+Write-Host "URL is GitHub: $(Test-IsGitHubUrl -Url $githubUrl)" -ForegroundColor Cyan
