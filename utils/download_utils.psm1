@@ -60,7 +60,6 @@ function Invoke-Aria2Download {
         "--user-agent=`"$UserAgent`"",
         "--continue=true",
         "--allow-overwrite=true",
-        "--max-redirection=50",
         "`"$Url`""
     )
 

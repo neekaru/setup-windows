@@ -32,10 +32,6 @@
                         </WrapPanel>
 
                         <CheckBox Name="EnableVCRedistCheckBox" Content="Install VC Redist" Margin="0,0,0,6" />
-                        <TextBlock Text="VC Redist URL" Margin="0,0,0,4" />
-                        <TextBox Name="VcUrlTextBox" Height="26" Margin="0,0,0,6" />
-                        <TextBlock Text="VC Redist args (separate with ';')" Margin="0,0,0,4" />
-                        <TextBox Name="VcArgsTextBox" Height="26" Margin="0,0,0,10" />
                         <CheckBox Name="EnableDxSetupCheckBox" Content="Install DXSetup" Margin="0,0,0,6" />
                         <TextBlock Text="DXSetup URL" Margin="0,0,0,4" />
                         <TextBox Name="DxUrlTextBox" Height="26" Margin="0,0,0,14" />

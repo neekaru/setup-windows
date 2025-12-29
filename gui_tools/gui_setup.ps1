@@ -23,8 +23,6 @@ $enableDxSetup = $window.FindName("EnableDxSetupCheckBox")
 $enableCleanup = $window.FindName("EnableCleanupCheckBox")
 $enableLog = $window.FindName("EnableLogCheckBox")
 
-$vcUrlBox = $window.FindName("VcUrlTextBox")
-$vcArgsBox = $window.FindName("VcArgsTextBox")
 $dxUrlBox = $window.FindName("DxUrlTextBox")
 
 $urlGrid = $window.FindName("UrlGrid")
@@ -51,8 +49,6 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $templateBox.Text = (Join-Path $projectRoot "setup_template.ps1")
 $outputBox.Text = (Join-Path $projectRoot "setup.ps1")
 
-$vcUrlBox.Text = "https://github.com/abbodi1406/vcredist/releases/latest/download/VisualCppRedist_AIO_x86_x64.exe"
-$vcArgsBox.Text = "/ai;/gm2"
 $dxUrlBox.Text = "https://download.microsoft.com/download/1/7/1/1718ccc4-6315-4d8e-9543-8e28a4e18c4c/dxwebsetup.exe"
 
 
@@ -688,8 +684,8 @@ $generateBtn.Add_Click({
         "ENABLE_WINGET_INSTALL" = (ConvertTo-BoolString $enableWingetInstall.IsChecked)
         "ENABLE_SCOOP_INSTALL" = (ConvertTo-BoolString $enableScoopInstall.IsChecked)
         "ENABLE_VCREDIST_INSTALL" = (ConvertTo-BoolString $enableVCRedist.IsChecked)
-        "VCREDIST_URL" = $vcUrlBox.Text
-        "VCREDIST_ARGS" = $vcArgsBox.Text
+        "VCREDIST_URL" = ""
+        "VCREDIST_ARGS" = ""
         "ENABLE_DXSETUP_INSTALL" = (ConvertTo-BoolString $enableDxSetup.IsChecked)
         "DXSETUP_URL" = $dxUrlBox.Text
         "ENABLE_CLEANUP" = (ConvertTo-BoolString $enableCleanup.IsChecked)
@@ -781,12 +777,12 @@ echo.
 echo Running setup script...
 echo.
 
-REM Run the setup script as administrator
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""%SCRIPT_DIR%extracted\setup.ps1""' -Verb RunAs"
+REM Run the setup script
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%extracted\setup.ps1"
 if %errorlevel% neq 0 goto ERROR
 
 echo.
-echo Installation started. Check the elevated PowerShell window.
+echo Installation process completed.
 goto END
 
 :ERROR

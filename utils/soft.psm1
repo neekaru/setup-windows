@@ -223,5 +223,51 @@ function Download-Aria2 {
     Remove-Item $extractPath -Recurse -Force
 
     
+
     Write-Output "Aria2 installation complete!"
+}
+
+# Function to install all Visual C++ Redistributables
+# Function to install all Visual C++ Redistributables
+function Install-MicrosoftVCRedist {
+    Write-Output "Installing Microsoft Visual C++ Redistributables..."
+
+    $vcRedistList = @(
+        @{ Name="2005 x86"; Filename="vcredist2005_x86.exe"; Url="https://download.microsoft.com/download/8/b/4/8b42259f-5d70-43f4-ac2e-4b208fd8d66a/vcredist_x86.EXE"; Args="/q" },
+        @{ Name="2005 x64"; Filename="vcredist2005_x64.exe"; Url="https://download.microsoft.com/download/8/b/4/8b42259f-5d70-43f4-ac2e-4b208fd8d66a/vcredist_x64.EXE"; Args="/q" },
+        @{ Name="2008 x86"; Filename="vcredist2008_x86.exe"; Url="https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe"; Args="/qb" },
+        @{ Name="2008 x64"; Filename="vcredist2008_x64.exe"; Url="https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe"; Args="/qb" },
+        @{ Name="2010 x86"; Filename="vcredist2010_x86.exe"; Url="https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe"; Args="/passive /norestart" },
+        @{ Name="2010 x64"; Filename="vcredist2010_x64.exe"; Url="https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe"; Args="/passive /norestart" },
+        @{ Name="2012 x86"; Filename="vcredist2012_x86.exe"; Url="https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe"; Args="/passive /norestart" },
+        @{ Name="2012 x64"; Filename="vcredist2012_x64.exe"; Url="https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe"; Args="/passive /norestart" },
+        @{ Name="2013 x86"; Filename="vcredist2013_x86.exe"; Url="https://download.microsoft.com/download/2/e/6/2e61cfa4-993b-4dd4-91da-3737cd5cd6e3/vcredist_x86.exe"; Args="/passive /norestart" },
+        @{ Name="2013 x64"; Filename="vcredist2013_x64.exe"; Url="https://download.microsoft.com/download/2/e/6/2e61cfa4-993b-4dd4-91da-3737cd5cd6e3/vcredist_x64.exe"; Args="/passive /norestart" },
+        @{ Name="Latest x86"; Filename="vcredist2015_2017_2019_2022_x86.exe"; Url="https://aka.ms/vs/17/release/vc_redist.x86.exe"; Args="/passive /norestart" },
+        @{ Name="Latest x64"; Filename="vcredist2015_2017_2019_2022_x64.exe"; Url="https://aka.ms/vs/17/release/vc_redist.x64.exe"; Args="/passive /norestart" }
+    )
+
+    foreach ($vc in $vcRedistList) {
+        $outputPath = Join-Path $env:TEMP $vc.Filename
+        
+        Write-Output "Downloading $($vc.Name)..."
+        try {
+            Invoke-DownloadFile -Url $vc.Url -OutputPath $outputPath
+            Write-Output "Installing $($vc.Name)..."
+            
+            $process = Start-Process -FilePath $outputPath -ArgumentList $vc.Args -Wait -PassThru -WindowStyle Hidden
+            
+            # 0 = Success, 3010 = Reboot Required, 1638 = Another version already installed (common for VCRedist)
+            if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010 -or $process.ExitCode -eq 1638) {
+                Write-Output "Successfully installed $($vc.Name)"
+            } else {
+                Write-Warning "Installation of $($vc.Name) returned exit code $($process.ExitCode)."
+            }
+            
+            # Clean up
+            Remove-Item $outputPath -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Error "Failed to process $($vc.Name): $_"
+        }
+    }
 }

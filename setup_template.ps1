@@ -44,7 +44,7 @@ $scoopScriptContent = @"
 
 try {
     # Disable QuickEdit Mode in child process
-    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 0 /f >$null 2>$null
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 0 /f >`$null 2>`$null
 
     # Pin env
     `$env:SCOOP = '$scoopRootEsc'
@@ -68,7 +68,7 @@ try {
 }
 catch {
     # Re-enable QuickEdit Mode on error
-    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >$null 2>$null
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >`$null 2>`$null
     Write-Host ""
     Write-Host "!!! ERROR in Scoop phase !!!" -ForegroundColor Red
     Write-Host (`$_ | Out-String) -ForegroundColor Red
@@ -79,7 +79,7 @@ catch {
 }
 finally {
     # Re-enable QuickEdit Mode when done
-    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >$null 2>$null
+    reg add "HKCU\Console" /v QuickEdit /t REG_DWORD /d 1 /f >`$null 2>`$null
     Write-Host ""
     Write-Host "Press any key to close this window..." -ForegroundColor Yellow
     `$null = `$Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -270,8 +270,7 @@ if ($EnableWingetInstall) {
 
 # Install Visual C++ Redistributables
 if ($EnableVCRedistInstall) {
-    Invoke-DownloadFile -Url $VcRedistUrl -OutputPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe"
-    Install-SoftwareManually -InstallerPath "$env:TEMP\VisualCppRedist_AIO_x86_x64.exe" -Arguments (ConvertTo-List $VcRedistArgs) -Wait
+    Install-MicrosoftVCRedist
 }
 
 if ($EnableDxSetupInstall) {
